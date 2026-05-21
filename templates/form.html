@@ -108,19 +108,18 @@
     <span class="badge bg-dropdown ms-2 fw-normal"><i class="bi bi-list-ul me-1"></i>Dropdown</span>
   </div>
   <div class="card-body">
-    {% if aircraft_list %}
+    {% if drones %}
     <div class="mb-3">
       <label class="form-label fw-semibold">Drohne auswählen</label>
-      <select class="form-select" id="aircraftSelect">
+      <select class="form-select" id="droneSelect">
         <option value="">– Drohne wählen –</option>
-        {% for ac in aircraft_list %}
-        <option value="{{ ac.id }}"
-                data-brand="{{ ac.brand }}"
-                data-type="{{ ac.type_serial }}"
-                data-reg="{{ ac.registration }}"
-                data-equip="{{ ac.equipment }}"
-                {% if ac.is_default %}selected{% endif %}>
-          {{ ac.name }}{% if ac.is_default %} (Standard){% endif %}
+        {% for d in drones %}
+        <option value="{{ d.id }}"
+                data-name="{{ d.name }}"
+                data-typ="{{ d.typ }}"
+                data-seriennummer="{{ d.seriennummer }}"
+                data-reg_nr="{{ d.reg_nr }}">
+          {{ d.name }}{% if d.typ %} – {{ d.typ }}{% endif %}
         </option>
         {% endfor %}
       </select>
@@ -128,25 +127,25 @@
     {% else %}
     <div class="alert alert-info py-2">
       <i class="bi bi-info-circle me-1"></i>
-      Noch keine Drohnen hinterlegt. <a href="{{ url_for('profile') }}">Jetzt im Profil hinzufügen</a>
+      Noch keine Drohnen hinterlegt. <a href="{{ url_for('admin') }}">Jetzt im Admin-Bereich hinzufügen</a>
     </div>
     {% endif %}
     <div class="row g-3">
-      <div class="col-md-3">
-        <label class="form-label fw-semibold">Marke <span class="text-danger">*</span></label>
-        <input type="text" name="drone_brand" id="droneBrand" class="form-control" required placeholder="z.B. DJI">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Name / Marke <span class="text-danger">*</span></label>
+        <input type="text" name="drone_brand" id="droneBrand" class="form-control" required placeholder="z.B. DJI Mavic 3">
       </div>
-      <div class="col-md-3">
-        <label class="form-label fw-semibold">Typ / Seriennummer</label>
-        <input type="text" name="drone_type" id="droneType" class="form-control" placeholder="z.B. Mavic 3 Pro">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Typ</label>
+        <input type="text" name="drone_type" id="droneType" class="form-control" placeholder="z.B. Multirotor">
       </div>
-      <div class="col-md-3">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Seriennummer</label>
+        <input type="text" name="drone_seriennummer" id="droneSeriennummer" class="form-control" placeholder="z.B. 1ZNBJ1A001234">
+      </div>
+      <div class="col-md-4">
         <label class="form-label fw-semibold">Reg.-Nr. (eID)</label>
         <input type="text" name="drone_reg" id="droneReg" class="form-control" placeholder="z.B. CHE-XXXX">
-      </div>
-      <div class="col-md-3">
-        <label class="form-label fw-semibold">Spez. Ausstattung</label>
-        <input type="text" name="drone_equipment" id="droneEquip" class="form-control" placeholder="z.B. Fallschirm, Transponder">
       </div>
     </div>
   </div>
@@ -261,8 +260,7 @@
   </div>
   <div class="card-body">
     <label class="form-label fw-semibold">Beurteilung <span class="text-danger">*</span></label>
-    <textarea name="risikobeurteilung" class="form-control" rows="3" required
-              placeholder="Persönliche Beurteilung der Sicherheitsrisiken, Angaben bei bewilligungspflichtigen Flügen oder externe Risikobeurteilung bei Spezialanwendungen…"></textarea>
+    <textarea name="risikobeurteilung" class="form-control" rows="3" required>Flug sicher durchführbar</textarea>
   </div>
 </div>
 
@@ -290,7 +288,7 @@
       </div>
       <div class="col-6 col-md-3">
         <label class="form-label fw-semibold">Anzahl Flüge</label>
-        <input type="number" name="anzahl_fluege" class="form-control" min="1" placeholder="z.B. 3">
+        <input type="number" name="anzahl_fluege" class="form-control" min="1" value="1" placeholder="z.B. 3">
       </div>
     </div>
   </div>
@@ -311,30 +309,37 @@
 
 <!-- ═══════════════════════════ 12. CHECKLISTE ══════════════════════════════ -->
 <div class="card mb-3 border-0 shadow-sm">
-  <div class="card-header section-header">
-    <i class="bi bi-check2-square me-2"></i>Checkliste für Drohnenflüge (§3)
-    <span class="badge bg-auto ms-2 fw-normal">Vorgehakt</span>
+  <div class="card-header section-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-check2-square me-2"></i>Checkliste für Drohnenflüge (§3)
+    <span class="badge bg-auto ms-2 fw-normal">Vorgehakt</span></span>
+    <button type="button" class="btn btn-sm btn-outline-secondary"
+            data-bs-toggle="collapse" data-bs-target="#checklistCollapse"
+            aria-expanded="false">
+      <i class="bi bi-chevron-down"></i> Ein-/ausklappen
+    </button>
   </div>
-  <div class="card-body p-0">
-    <div class="alert alert-warning m-3 py-2 mb-0">
-      <i class="bi bi-exclamation-circle me-1"></i>
-      Alle Punkte sind <strong>wahrheitsgetreu</strong> auszufüllen. Entfernen Sie Haken nur wenn ein Punkt nicht zutrifft.
-    </div>
-    <ul class="list-group list-group-flush">
-      {% for num, is_sub, text in checklist %}
-      <li class="list-group-item {% if is_sub %}ps-5 bg-light{% endif %}">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="cb_{{ num }}" id="cb{{ num }}" value="on" checked>
-          <label class="form-check-label {% if is_sub %}text-muted{% endif %}" for="cb{{ num }}">
-            {% if not is_sub %}<strong>{{ loop.index - loop.index0|int }}.</strong> {% endif %}
-            {{ text }}
-          </label>
-        </div>
-      </li>
-      {% endfor %}
-    </ul>
-    <div class="p-3 text-muted small">
-      * NOTAM: Notice to Airmen &nbsp;|&nbsp; ** DABS: Daily Airspace Bulletin Switzerland
+  <div class="collapse" id="checklistCollapse">
+    <div class="card-body p-0">
+      <div class="alert alert-warning m-3 py-2 mb-0">
+        <i class="bi bi-exclamation-circle me-1"></i>
+        Alle Punkte sind <strong>wahrheitsgetreu</strong> auszufüllen. Entfernen Sie Haken nur wenn ein Punkt nicht zutrifft.
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for num, is_sub, text in checklist %}
+        <li class="list-group-item {% if is_sub %}ps-5 bg-light{% endif %}">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="cb_{{ num }}" id="cb{{ num }}" value="on" checked>
+            <label class="form-check-label {% if is_sub %}text-muted{% endif %}" for="cb{{ num }}">
+              {% if not is_sub %}<strong>{{ loop.index - loop.index0|int }}.</strong> {% endif %}
+              {{ text }}
+            </label>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="p-3 text-muted small">
+        * NOTAM: Notice to Airmen &nbsp;|&nbsp; ** DABS: Daily Airspace Bulletin Switzerland
+      </div>
     </div>
   </div>
 </div>
@@ -434,13 +439,13 @@
 
 {% block scripts %}
 <script>
-// Auto-fill aircraft from dropdown
-document.getElementById('aircraftSelect')?.addEventListener('change', function() {
+// Auto-fill drone fields from central dropdown
+document.getElementById('droneSelect')?.addEventListener('change', function() {
   const opt = this.options[this.selectedIndex];
-  document.getElementById('droneBrand').value  = opt.dataset.brand  || '';
-  document.getElementById('droneType').value   = opt.dataset.type   || '';
-  document.getElementById('droneReg').value    = opt.dataset.reg    || '';
-  document.getElementById('droneEquip').value  = opt.dataset.equip  || '';
+  document.getElementById('droneBrand').value        = opt.dataset.name         || '';
+  document.getElementById('droneType').value         = opt.dataset.typ          || '';
+  document.getElementById('droneSeriennummer').value = opt.dataset.seriennummer || '';
+  document.getElementById('droneReg').value          = opt.dataset.reg_nr       || '';
 });
 
 // Auto-fill sendeformat from dropdown
@@ -462,10 +467,5 @@ function calcFlugminuten() {
 document.getElementById('startzeit')?.addEventListener('change', calcFlugminuten);
 document.getElementById('landezeit')?.addEventListener('change', calcFlugminuten);
 
-// Trigger default aircraft selection on load
-window.addEventListener('DOMContentLoaded', () => {
-  const sel = document.getElementById('aircraftSelect');
-  if (sel && sel.value) sel.dispatchEvent(new Event('change'));
-});
 </script>
 {% endblock %}

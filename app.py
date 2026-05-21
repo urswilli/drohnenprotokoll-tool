@@ -108,11 +108,36 @@ def init_db():
                 is_default INTEGER DEFAULT 0,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             );
+            CREATE TABLE IF NOT EXISTS drones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                typ TEXT DEFAULT '',
+                seriennummer TEXT DEFAULT '',
+                reg_nr TEXT DEFAULT ''
+            );
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT DEFAULT ''
             );
+            CREATE TABLE IF NOT EXISTS sendeformate (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
+            CREATE TABLE IF NOT EXISTS verwendungszwecke (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
         ''')
+        try:
+            conn.execute("ALTER TABLE drones ADD COLUMN reg_nr TEXT DEFAULT ''")
+        except Exception:
+            pass
+        if conn.execute('SELECT COUNT(*) FROM sendeformate').fetchone()[0] == 0:
+            conn.executemany('INSERT OR IGNORE INTO sendeformate(name) VALUES(?)',
+                             [(s,) for s in SENDEFORMATE])
+        if conn.execute('SELECT COUNT(*) FROM verwendungszwecke').fetchone()[0] == 0:
+            conn.executemany('INSERT OR IGNORE INTO verwendungszwecke(name) VALUES(?)',
+                             [(v,) for v in VERWENDUNGSZWECKE])
         conn.commit()
 
 
@@ -175,7 +200,10 @@ def fill_pdf(form_data):
         'Text141': form_data.get('drone_brand', ''),
         'Text142': form_data.get('drone_type', ''),
         'Text143': form_data.get('drone_equipment', ''),
-        'Text144': form_data.get('drone_reg', ''),
+        'Text144': ' / '.join(p for p in [
+            form_data.get('drone_seriennummer', ''),
+            form_data.get('drone_reg', '')
+        ] if p),
 
         # Dates & location
         'Text151': form_data.get('drehdatum', today),
@@ -249,7 +277,7 @@ def send_email(form_data, pdf_path, filename):
     smtp_port = int(get_setting('smtp_port', '587'))
     smtp_user = get_setting('smtp_user')
     smtp_pass = get_setting('smtp_pass')
-    smtp_from = get_setting('smtp_from') or smtp_user
+    smtp_from = form_data.get('pilot_email', '') or get_setting('smtp_from') or smtp_user
 
     if not smtp_host:
         return False, 'SMTP nicht konfiguriert'
@@ -320,7 +348,10 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         with get_db() as conn:
-            user = conn.execute('SELECT * FROM users WHERE username=?', (username,)).fetchone()
+            user = conn.execute(
+                'SELECT u.* FROM users u LEFT JOIN profiles p ON u.id = p.user_id '
+                'WHERE u.username=? OR p.pilot_email=?',
+                (username, username)).fetchone()
         if user and check_password_hash(user['password_hash'], password):
             session['user_id'] = user['id']
             session['username'] = user['username']
@@ -345,14 +376,19 @@ def index():
         aircraft_list = conn.execute(
             'SELECT * FROM aircraft WHERE user_id=? ORDER BY is_default DESC, name',
             (session['user_id'],)).fetchall()
+    with get_db() as conn:
+        drones = conn.execute('SELECT * FROM drones ORDER BY name').fetchall()
+        sendeformate = [r['name'] for r in conn.execute('SELECT name FROM sendeformate ORDER BY id').fetchall()]
+        verwendungszwecke = [r['name'] for r in conn.execute('SELECT name FROM verwendungszwecke ORDER BY id').fetchall()]
     today = date.today().strftime('%Y/%m/%d')
     return render_template('form.html',
                            profile=profile,
                            aircraft_list=aircraft_list,
+                           drones=drones,
                            today=today,
                            checklist=CHECKLIST_ITEMS,
-                           sendeformate=SENDEFORMATE,
-                           verwendungszwecke=VERWENDUNGSZWECKE)
+                           sendeformate=sendeformate,
+                           verwendungszwecke=verwendungszwecke)
 
 
 @app.route('/submit', methods=['POST'])
@@ -412,12 +448,13 @@ def location_data():
         with urllib.request.urlopen(req, timeout=5) as r:
             geo = json.loads(r.read())
         addr = geo.get('address', {})
-        parts = [p for p in [
-            addr.get('city') or addr.get('town') or addr.get('village') or addr.get('hamlet'),
-            addr.get('county') or addr.get('state_district'),
-            addr.get('state'),
-        ] if p]
-        result['location'] = ', '.join(parts) if parts else geo.get('display_name', '')
+        road   = addr.get('road', '')
+        number = addr.get('house_number', '')
+        post   = addr.get('postcode', '')
+        city   = addr.get('city') or addr.get('town') or addr.get('village') or addr.get('hamlet', '')
+        street = f"{road} {number}".strip()
+        loc    = ', '.join(p for p in [street, f"{post} {city}".strip()] if p)
+        result['location'] = loc if loc else geo.get('display_name', '')
     except Exception:
         pass
 
@@ -425,19 +462,15 @@ def location_data():
     try:
         w_url = (f'https://api.open-meteo.com/v1/forecast'
                  f'?latitude={lat}&longitude={lon}'
-                 f'&current=temperature_2m,wind_speed_10m,weather_code,relative_humidity_2m'
-                 f'&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,precipitation_sum'
-                 f'&forecast_days=1&timezone=auto')
+                 f'&current=temperature_2m,wind_speed_10m,weather_code'
+                 f'&timezone=auto')
         with urllib.request.urlopen(w_url, timeout=5) as r:
             w = json.loads(r.read())
         c = w['current']
-        d = w['daily']
         desc = WEATHER_CODES.get(c['weather_code'], 'Unbekannt')
         result['weather'] = (
-            f"{desc}, {c['temperature_2m']:.1f}°C "
-            f"(Max: {d['temperature_2m_max'][0]:.1f}°C, Min: {d['temperature_2m_min'][0]:.1f}°C), "
-            f"Wind: {c['wind_speed_10m']:.1f} km/h (Max: {d['wind_speed_10m_max'][0]:.1f} km/h), "
-            f"Luftfeuchtigkeit: {c['relative_humidity_2m']}%"
+            f"{desc}, {c['temperature_2m']:.1f}°C, "
+            f"Wind: {c['wind_speed_10m']:.1f} km/h"
         )
     except Exception:
         pass
@@ -554,12 +587,117 @@ def admin():
                     conn.commit()
                 flash('Benutzer gelöscht.', 'success')
 
+        elif action == 'add_drone':
+            name = request.form.get('drone_name', '').strip()
+            if name:
+                with get_db() as conn:
+                    conn.execute(
+                        'INSERT INTO drones(name, typ, seriennummer, reg_nr) VALUES(?,?,?,?)',
+                        (name,
+                         request.form.get('drone_typ', '').strip(),
+                         request.form.get('drone_seriennummer', '').strip(),
+                         request.form.get('drone_reg_nr', '').strip()))
+                    conn.commit()
+                flash('Drohne hinzugefügt.', 'success')
+            else:
+                flash('Name ist erforderlich.', 'danger')
+
+        elif action == 'edit_drone':
+            did = request.form.get('drone_id')
+            name = request.form.get('drone_name', '').strip()
+            if name:
+                with get_db() as conn:
+                    conn.execute(
+                        'UPDATE drones SET name=?, typ=?, seriennummer=?, reg_nr=? WHERE id=?',
+                        (name,
+                         request.form.get('drone_typ', '').strip(),
+                         request.form.get('drone_seriennummer', '').strip(),
+                         request.form.get('drone_reg_nr', '').strip(),
+                         did))
+                    conn.commit()
+                flash('Drohne aktualisiert.', 'success')
+            else:
+                flash('Name ist erforderlich.', 'danger')
+
+        elif action == 'delete_drone':
+            did = request.form.get('drone_id')
+            with get_db() as conn:
+                conn.execute('DELETE FROM drones WHERE id=?', (did,))
+                conn.commit()
+            flash('Drohne gelöscht.', 'success')
+
+        elif action == 'add_sendeformat':
+            name = request.form.get('sf_name', '').strip()
+            if name:
+                with get_db() as conn:
+                    try:
+                        conn.execute('INSERT INTO sendeformate(name) VALUES(?)', (name,))
+                        conn.commit()
+                        flash('Sendeformat hinzugefügt.', 'success')
+                    except Exception:
+                        flash('Sendeformat bereits vorhanden.', 'danger')
+            else:
+                flash('Name ist erforderlich.', 'danger')
+
+        elif action == 'edit_sendeformat':
+            sfid = request.form.get('sf_id')
+            name = request.form.get('sf_name', '').strip()
+            if name:
+                with get_db() as conn:
+                    conn.execute('UPDATE sendeformate SET name=? WHERE id=?', (name, sfid))
+                    conn.commit()
+                flash('Sendeformat aktualisiert.', 'success')
+            else:
+                flash('Name ist erforderlich.', 'danger')
+
+        elif action == 'delete_sendeformat':
+            sfid = request.form.get('sf_id')
+            with get_db() as conn:
+                conn.execute('DELETE FROM sendeformate WHERE id=?', (sfid,))
+                conn.commit()
+            flash('Sendeformat gelöscht.', 'success')
+
+        elif action == 'add_verwendungszweck':
+            name = request.form.get('vz_name', '').strip()
+            if name:
+                with get_db() as conn:
+                    try:
+                        conn.execute('INSERT INTO verwendungszwecke(name) VALUES(?)', (name,))
+                        conn.commit()
+                        flash('Verwendungszweck hinzugefügt.', 'success')
+                    except Exception:
+                        flash('Verwendungszweck bereits vorhanden.', 'danger')
+            else:
+                flash('Name ist erforderlich.', 'danger')
+
+        elif action == 'edit_verwendungszweck':
+            vzid = request.form.get('vz_id')
+            name = request.form.get('vz_name', '').strip()
+            if name:
+                with get_db() as conn:
+                    conn.execute('UPDATE verwendungszwecke SET name=? WHERE id=?', (name, vzid))
+                    conn.commit()
+                flash('Verwendungszweck aktualisiert.', 'success')
+            else:
+                flash('Name ist erforderlich.', 'danger')
+
+        elif action == 'delete_verwendungszweck':
+            vzid = request.form.get('vz_id')
+            with get_db() as conn:
+                conn.execute('DELETE FROM verwendungszwecke WHERE id=?', (vzid,))
+                conn.commit()
+            flash('Verwendungszweck gelöscht.', 'success')
+
         return redirect(url_for('admin'))
 
     with get_db() as conn:
         users = conn.execute('SELECT id,username,is_admin FROM users').fetchall()
+        drones = conn.execute('SELECT * FROM drones ORDER BY name').fetchall()
+        sendeformate = conn.execute('SELECT * FROM sendeformate ORDER BY id').fetchall()
+        verwendungszwecke = conn.execute('SELECT * FROM verwendungszwecke ORDER BY id').fetchall()
     smtp_settings = {k: get_setting(k) for k in ['smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from']}
-    return render_template('admin.html', users=users, smtp=smtp_settings)
+    return render_template('admin.html', users=users, smtp=smtp_settings, drones=drones,
+                           sendeformate=sendeformate, verwendungszwecke=verwendungszwecke)
 
 
 if __name__ == '__main__':
