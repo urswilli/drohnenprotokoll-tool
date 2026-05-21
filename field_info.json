@@ -1,0 +1,1006 @@
+[
+  {
+    "field_id": "Info.01",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      195.651,
+      758.935,
+      540.01,
+      812.744
+    ]
+  },
+  {
+    "field_id": "Info.11-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      667.328,
+      324.189,
+      679.742
+    ]
+  },
+  {
+    "field_id": "Text111",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      667.328,
+      520.271,
+      679.742
+    ]
+  },
+  {
+    "field_id": "Info.11",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      76.8753,
+      631.467,
+      252.953,
+      664.876
+    ]
+  },
+  {
+    "field_id": "Info.11-2",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      630.453,
+      324.189,
+      666.025
+    ]
+  },
+  {
+    "field_id": "Text112",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      630.453,
+      520.271,
+      666.025
+    ]
+  },
+  {
+    "field_id": "Info.13-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      614.056,
+      324.189,
+      626.488
+    ]
+  },
+  {
+    "field_id": "Text131",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      614.056,
+      520.271,
+      626.488
+    ]
+  },
+  {
+    "field_id": "Info.12",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      76.8753,
+      577.776,
+      252.953,
+      600.748
+    ]
+  },
+  {
+    "field_id": "Info.13-2",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      577.282,
+      324.189,
+      613.483
+    ]
+  },
+  {
+    "field_id": "Text132",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      577.282,
+      520.271,
+      613.483
+    ]
+  },
+  {
+    "field_id": "Info.12-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      557.854,
+      324.189,
+      573.074
+    ]
+  },
+  {
+    "field_id": "Text121",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      557.854,
+      520.271,
+      573.074
+    ]
+  },
+  {
+    "field_id": "Info.12-2",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      541.731,
+      324.189,
+      556.951
+    ]
+  },
+  {
+    "field_id": "Text122",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      541.731,
+      520.271,
+      556.951
+    ]
+  },
+  {
+    "field_id": "Info.12-3",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      525.607,
+      324.189,
+      540.827
+    ]
+  },
+  {
+    "field_id": "Text123",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      525.607,
+      520.271,
+      540.827
+    ]
+  },
+  {
+    "field_id": "Info.13",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      76.8753,
+      524.99,
+      252.953,
+      550.114
+    ]
+  },
+  {
+    "field_id": "Info.14-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      506.328,
+      324.189,
+      521.548
+    ]
+  },
+  {
+    "field_id": "Text141",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      506.328,
+      520.271,
+      521.548
+    ]
+  },
+  {
+    "field_id": "Info.14-2",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      490.035,
+      324.189,
+      505.255
+    ]
+  },
+  {
+    "field_id": "Text142",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      490.035,
+      520.271,
+      505.255
+    ]
+  },
+  {
+    "field_id": "Info.14-4",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      473.742,
+      324.189,
+      488.962
+    ]
+  },
+  {
+    "field_id": "Text144",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      473.742,
+      520.271,
+      488.962
+    ]
+  },
+  {
+    "field_id": "Info.14-3",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      457.45,
+      324.189,
+      472.669
+    ]
+  },
+  {
+    "field_id": "Text143",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      457.45,
+      520.271,
+      472.669
+    ]
+  },
+  {
+    "field_id": "Info.15-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      415.993,
+      324.189,
+      439.493
+    ]
+  },
+  {
+    "field_id": "Text151",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.368,
+      415.993,
+      457.05,
+      439.493
+    ]
+  },
+  {
+    "field_id": "Info.15-2",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      457.205,
+      415.993,
+      519.631,
+      439.493
+    ]
+  },
+  {
+    "field_id": "Info.15",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      76.8753,
+      408.32,
+      252.953,
+      437.69
+    ]
+  },
+  {
+    "field_id": "Info.17-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      401.597,
+      324.189,
+      378.779
+    ]
+  },
+  {
+    "field_id": "Text171",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      378.779,
+      520.271,
+      401.597
+    ]
+  },
+  {
+    "field_id": "Info.16",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      76.8753,
+      356.197,
+      252.953,
+      382.466
+    ]
+  },
+  {
+    "field_id": "Info.17-2",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.453,
+      354.503,
+      324.538,
+      377.321
+    ]
+  },
+  {
+    "field_id": "Text172",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      354.503,
+      520.271,
+      377.321
+    ]
+  },
+  {
+    "field_id": "Info.16-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      325.719,
+      324.189,
+      348.537
+    ]
+  },
+  {
+    "field_id": "Text161",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      325.719,
+      520.271,
+      348.537
+    ]
+  },
+  {
+    "field_id": "Info.16-2",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      323.77,
+      324.189,
+      300.952
+    ]
+  },
+  {
+    "field_id": "Info.17",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      76.8753,
+      303.552,
+      252.953,
+      338.236
+    ]
+  },
+  {
+    "field_id": "Text162",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      300.952,
+      520.271,
+      323.77
+    ]
+  },
+  {
+    "field_id": "Info.18",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      76.8753,
+      254.181,
+      252.953,
+      275.024
+    ]
+  },
+  {
+    "field_id": "Info.18-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      248.415,
+      324.189,
+      297.525
+    ]
+  },
+  {
+    "field_id": "Text181",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      248.415,
+      520.271,
+      297.525
+    ]
+  },
+  {
+    "field_id": "Info.19-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      194.996,
+      324.189,
+      244.159
+    ]
+  },
+  {
+    "field_id": "Text191",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      194.996,
+      520.271,
+      244.159
+    ]
+  },
+  {
+    "field_id": "Info.19",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      76.8753,
+      194.613,
+      252.953,
+      220.555
+    ]
+  },
+  {
+    "field_id": "Info.20-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      179.982,
+      324.189,
+      191.885
+    ]
+  },
+  {
+    "field_id": "Text201",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      179.982,
+      520.271,
+      191.885
+    ]
+  },
+  {
+    "field_id": "Info.20-2",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      167.455,
+      324.189,
+      179.358
+    ]
+  },
+  {
+    "field_id": "Text202",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      167.455,
+      520.271,
+      179.358
+    ]
+  },
+  {
+    "field_id": "Info.20-3",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      154.928,
+      324.189,
+      166.831
+    ]
+  },
+  {
+    "field_id": "Text203",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      154.928,
+      520.271,
+      166.831
+    ]
+  },
+  {
+    "field_id": "Info.20-4",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      142.401,
+      324.189,
+      154.304
+    ]
+  },
+  {
+    "field_id": "Text204",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.445,
+      142.401,
+      520.271,
+      154.304
+    ]
+  },
+  {
+    "field_id": "Text211",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      324.663,
+      138.763,
+      520.489,
+      76.8958
+    ]
+  },
+  {
+    "field_id": "Info.20",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      76.8753,
+      77.688,
+      252.953,
+      124.24
+    ]
+  },
+  {
+    "field_id": "Info.21-1",
+    "type": "text",
+    "page": 5,
+    "rect": [
+      264.104,
+      76.9179,
+      324.189,
+      138.785
+    ]
+  },
+  {
+    "field_id": "Check Box1",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      489.825,
+      597.055,
+      512.374,
+      619.118
+    ]
+  },
+  {
+    "field_id": "Check Box2",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      489.825,
+      556.753,
+      512.374,
+      578.816
+    ]
+  },
+  {
+    "field_id": "Check Box3",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      494.713,
+      509.853,
+      507.486,
+      522.35
+    ]
+  },
+  {
+    "field_id": "Check Box4",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      494.713,
+      496.415,
+      507.486,
+      508.912
+    ]
+  },
+  {
+    "field_id": "Check Box5",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      494.713,
+      482.976,
+      507.486,
+      495.473
+    ]
+  },
+  {
+    "field_id": "Check Box6",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      494.713,
+      469.537,
+      507.486,
+      482.035
+    ]
+  },
+  {
+    "field_id": "Check Box7",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      489.825,
+      395.908,
+      512.374,
+      417.971
+    ]
+  },
+  {
+    "field_id": "Check Box8",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      489.825,
+      341.977,
+      512.374,
+      364.04
+    ]
+  },
+  {
+    "field_id": "Check Box9",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      489.825,
+      289.99,
+      512.374,
+      312.053
+    ]
+  },
+  {
+    "field_id": "Check Box10",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      489.825,
+      224.463,
+      512.374,
+      246.526
+    ]
+  },
+  {
+    "field_id": "Check Box11",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      489.825,
+      171.044,
+      512.374,
+      193.107
+    ]
+  },
+  {
+    "field_id": "Check Box12",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 6,
+    "rect": [
+      489.825,
+      94.5542,
+      512.374,
+      116.617
+    ]
+  },
+  {
+    "field_id": "Check Box13",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 7,
+    "rect": [
+      489.887,
+      687.129,
+      512.436,
+      709.191
+    ]
+  },
+  {
+    "field_id": "Check Box14",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 7,
+    "rect": [
+      489.887,
+      624.384,
+      512.436,
+      646.446
+    ]
+  },
+  {
+    "field_id": "Check Box15",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 7,
+    "rect": [
+      489.887,
+      567.639,
+      512.436,
+      589.701
+    ]
+  },
+  {
+    "field_id": "Check Box16",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 7,
+    "rect": [
+      489.887,
+      508.22,
+      512.436,
+      530.282
+    ]
+  },
+  {
+    "field_id": "Check Box17",
+    "type": "checkbox",
+    "checked_value": "/Oui",
+    "unchecked_value": "/Off",
+    "page": 7,
+    "rect": [
+      489.887,
+      456.02,
+      512.436,
+      478.082
+    ]
+  },
+  {
+    "field_id": "Info.36",
+    "type": "text",
+    "page": 7,
+    "rect": [
+      252.807,
+      303.67,
+      296.898,
+      320.818
+    ]
+  },
+  {
+    "field_id": "Info.35",
+    "type": "text",
+    "page": 7,
+    "rect": [
+      142.4,
+      303.615,
+      165.546,
+      320.763
+    ]
+  },
+  {
+    "field_id": "Text13",
+    "type": "text",
+    "page": 7,
+    "rect": [
+      296.849,
+      245.127,
+      565.603,
+      264.291
+    ]
+  },
+  {
+    "field_id": "Info.33",
+    "type": "text",
+    "page": 7,
+    "rect": [
+      296.849,
+      218.79,
+      565.603,
+      244.011
+    ]
+  },
+  {
+    "field_id": "Info.38",
+    "type": "text",
+    "page": 7,
+    "rect": [
+      252.807,
+      135.927,
+      296.898,
+      153.075
+    ]
+  },
+  {
+    "field_id": "Info.37",
+    "type": "text",
+    "page": 7,
+    "rect": [
+      142.4,
+      135.869,
+      165.546,
+      153.017
+    ]
+  },
+  {
+    "field_id": "Text15",
+    "type": "text",
+    "page": 7,
+    "rect": [
+      296.849,
+      76.5135,
+      565.603,
+      95.6772
+    ]
+  },
+  {
+    "field_id": "Info.34",
+    "type": "text",
+    "page": 7,
+    "rect": [
+      296.849,
+      50.18,
+      565.603,
+      75.4005
+    ]
+  },
+  {
+    "field_id": "JA",
+    "type": "checkbox",
+    "checked_value": "/Ja",
+    "unchecked_value": "/Off",
+    "page": 7,
+    "rect": [
+      204.214,
+      5.30263,
+      230.061,
+      31.4978
+    ]
+  },
+  {
+    "field_id": "Formular senden",
+    "type": "checkbox",
+    "page": 7,
+    "rect": [
+      296.849,
+      2.98257,
+      432.077,
+      31.2735
+    ]
+  },
+  {
+    "field_id": "Wahr",
+    "type": "text",
+    "page": 7,
+    "rect": [
+      71.6027,
+      2.48421,
+      201.181,
+      34.3162
+    ]
+  },
+  {
+    "field_id": "Danke",
+    "type": "text",
+    "page": 8,
+    "rect": [
+      296.815,
+      744.021,
+      566.634,
+      815.188
+    ]
+  },
+  {
+    "field_id": "Text301",
+    "type": "text",
+    "page": 8,
+    "rect": [
+      230.217,
+      70.2461,
+      387.964,
+      48.2461
+    ]
+  },
+  {
+    "field_id": "Text300",
+    "type": "text",
+    "page": 8,
+    "rect": [
+      71.5748,
+      48.2683,
+      229.322,
+      70.2683
+    ]
+  }
+]

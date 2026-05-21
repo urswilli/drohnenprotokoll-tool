@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Login – Drohnenprotokoll SRG{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-sm-10 col-md-6 col-lg-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-4">
+        <div class="text-center mb-4">
+          <div class="bg-srg rounded-circle d-inline-flex p-3 mb-2">
+            <i class="bi bi-airplane text-white fs-3"></i>
+          </div>
+          <h4 class="fw-bold mb-0">Drohnenprotokoll</h4>
+          <p class="text-muted small">Schweizer Radio und Fernsehen</p>
+        </div>
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Benutzername</label>
+            <input type="text" name="username" class="form-control" autofocus required>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Passwort</label>
+            <input type="password" name="password" class="form-control" required>
+          </div>
+          <button type="submit" class="btn btn-srg w-100 fw-semibold">
+            <i class="bi bi-box-arrow-in-right me-1"></i> Anmelden
+          </button>
+        </form>
+      </div>
+    </div>
+    <p class="text-center text-muted small mt-3">V500e – Weisung und Checkliste für den Einsatz von Drohnen</p>
+  </div>
+</div>
+{% endblock %}

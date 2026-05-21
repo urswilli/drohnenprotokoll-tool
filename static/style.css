@@ -1,0 +1,56 @@
+:root {
+  --srg-red: #c8102e;
+  --srg-dark: #1a1a2e;
+}
+
+/* ── Brand colours ── */
+.bg-srg        { background-color: var(--srg-red) !important; }
+.text-srg      { color: var(--srg-red) !important; }
+.btn-srg       { background-color: var(--srg-red); color: #fff; border: none; }
+.btn-srg:hover { background-color: #a50d25; color: #fff; }
+.badge.bg-srg  { background-color: var(--srg-red) !important; }
+
+/* ── Navbar ── */
+.bg-srg.navbar { background-color: var(--srg-red) !important; }
+
+/* ── Section headers ── */
+.section-header {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  color: #343a40;
+  font-weight: 600;
+  font-size: .9rem;
+  padding: .65rem 1rem;
+  border-bottom: 2px solid var(--srg-red);
+}
+
+/* ── Badge colours for field sources ── */
+.bg-profile  { background-color: #0d6efd !important; }
+.bg-auto     { background-color: #198754 !important; }
+.bg-manual   { background-color: #6c757d !important; }
+.bg-dropdown { background-color: #6610f2 !important; }
+
+/* ── Cards ── */
+.card { border-radius: .6rem; }
+
+/* ── Login page ── */
+body.login-bg { background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%); }
+
+/* ── Checklist zebra ── */
+.list-group-item:nth-child(even):not(.ps-5) { background-color: #fafafa; }
+.list-group-item.ps-5 { border-left: 3px solid #dee2e6; }
+
+/* ── Form controls ── */
+.form-control:focus, .form-select:focus {
+  border-color: var(--srg-red);
+  box-shadow: 0 0 0 .2rem rgba(200,16,46,.15);
+}
+
+/* ── Location status banner ── */
+#locationStatus { border-left: 4px solid #0dcaf0; }
+
+/* ── Auto-filled fields highlight ── */
+.auto-filled {
+  border-color: #198754 !important;
+  background-color: #f0fff4 !important;
+  transition: background-color .4s ease;
+}

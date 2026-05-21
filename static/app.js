@@ -1,0 +1,156 @@
+'use strict';
+
+// ── Geolocation + Weather + Reverse Geocoding ─────────────────────────────
+
+const btn = document.getElementById('btnLocation');
+const statusBox = document.getElementById('locationStatus');
+const statusText = document.getElementById('locationStatusText');
+const spinner = document.getElementById('locationSpinner');
+
+function setAutoFilled(el) {
+  if (!el) return;
+  el.classList.add('auto-filled');
+  setTimeout(() => el.classList.remove('auto-filled'), 2000);
+}
+
+function setField(id, value) {
+  const el = document.getElementById(id);
+  if (el && value) {
+    el.value = value;
+    setAutoFilled(el);
+  }
+}
+
+function setTextarea(id, value) {
+  const el = document.getElementById(id);
+  if (el && value) {
+    el.value = value;
+    setAutoFilled(el);
+  }
+}
+
+function showStatus(msg, done = false) {
+  if (!statusBox) return;
+  statusBox.classList.remove('d-none');
+  if (statusText) statusText.textContent = msg;
+  if (spinner) spinner.classList.toggle('d-none', done);
+}
+
+function hideStatus() {
+  if (statusBox) statusBox.classList.add('d-none');
+}
+
+function requestLocation() {
+  if (!navigator.geolocation) {
+    alert('Ihr Browser unterstützt keine Geolokalisierung.');
+    return;
+  }
+  showStatus('Standort wird ermittelt…');
+  if (btn) btn.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      showStatus('Standort gefunden – Wetter und Adresse werden abgerufen…');
+
+      fetch(`/api/location-data?lat=${lat}&lon=${lon}`)
+        .then(r => r.json())
+        .then(data => {
+          setField('drehort', data.location);
+          setField('koordinaten', data.coordinates);
+          setField('ort_eva', data.location);
+          setField('ort_pilot', data.location);
+          setTextarea('wetterlage', data.weather);
+          showStatus('Standort, Koordinaten und Wetterlage erfolgreich ermittelt.', true);
+          setTimeout(hideStatus, 4000);
+        })
+        .catch(() => {
+          showStatus('Fehler beim Abrufen der Wetterdaten.', true);
+          setTimeout(hideStatus, 4000);
+        })
+        .finally(() => {
+          if (btn) btn.disabled = false;
+        });
+    },
+    (err) => {
+      let msg = 'Standort konnte nicht ermittelt werden.';
+      if (err.code === 1) msg = 'Standortzugriff verweigert. Bitte in Browser-Einstellungen erlauben.';
+      if (err.code === 2) msg = 'Standort nicht verfügbar.';
+      showStatus(msg, true);
+      setTimeout(hideStatus, 5000);
+      if (btn) btn.disabled = false;
+    },
+    { enableHighAccuracy: true, timeout: 15000 }
+  );
+}
+
+if (btn) btn.addEventListener('click', requestLocation);
+
+// ── Aircraft dropdown ─────────────────────────────────────────────────────
+
+const aircraftSelect = document.getElementById('aircraftSelect');
+if (aircraftSelect) {
+  function fillAircraftFields() {
+    const opt = aircraftSelect.options[aircraftSelect.selectedIndex];
+    if (!opt || !opt.value) return;
+    const map = {
+      droneBrand: opt.dataset.brand,
+      droneType:  opt.dataset.type,
+      droneReg:   opt.dataset.reg,
+      droneEquip: opt.dataset.equip,
+    };
+    Object.entries(map).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined) { el.value = val; setAutoFilled(el); }
+    });
+  }
+  aircraftSelect.addEventListener('change', fillAircraftFields);
+  // Apply default selection on load
+  if (aircraftSelect.value) fillAircraftFields();
+}
+
+// ── Sendeformat dropdown → text field ────────────────────────────────────
+
+const sfSelect = document.getElementById('sendeformatSelect');
+const sfInput  = document.getElementById('sendeformat');
+if (sfSelect && sfInput) {
+  sfSelect.addEventListener('change', () => {
+    if (sfSelect.value) { sfInput.value = sfSelect.value; setAutoFilled(sfInput); }
+  });
+}
+
+// ── Flight duration auto-calculation ─────────────────────────────────────
+
+const startInput   = document.getElementById('startzeit');
+const landInput    = document.getElementById('landezeit');
+const minutesInput = document.getElementById('flugminuten');
+
+function calcMinutes() {
+  if (!startInput || !landInput || !minutesInput) return;
+  const [sh, sm] = startInput.value.split(':').map(Number);
+  const [lh, lm] = landInput.value.split(':').map(Number);
+  if (isNaN(sh) || isNaN(lh)) return;
+  const diff = (lh * 60 + lm) - (sh * 60 + sm);
+  if (diff > 0) { minutesInput.value = diff; setAutoFilled(minutesInput); }
+}
+
+startInput?.addEventListener('change', calcMinutes);
+landInput?.addEventListener('change', calcMinutes);
+
+// ── Drehdatum → Datum-Felder in Abschnitt 4 synchronisieren ──────────────
+
+const drehdatumInput = document.getElementById('drehdatum');
+const datumEva   = document.getElementById('datum_eva');
+const datumPilot = document.getElementById('datum_pilot');
+
+if (drehdatumInput) {
+  drehdatumInput.addEventListener('change', () => {
+    const v = drehdatumInput.value;
+    if (datumEva   && !datumEva._manuallyChanged)   datumEva.value   = v;
+    if (datumPilot && !datumPilot._manuallyChanged) datumPilot.value = v;
+  });
+  [datumEva, datumPilot].forEach(el => {
+    el?.addEventListener('change', () => { el._manuallyChanged = true; });
+  });
+}

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Profil – Drohnenprotokoll SRG{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold mb-4"><i class="bi bi-person-circle me-2 text-srg"></i>Mein Profil</h4>
+
+<div class="row g-4">
+
+  <!-- Pilotendaten -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header section-header">
+        <i class="bi bi-person-badge me-2"></i>Pilotendaten
+      </div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="action" value="save_profile">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Vorname, Name <span class="text-danger">*</span></label>
+            <input type="text" name="pilot_name" class="form-control"
+                   value="{{ profile.pilot_name if profile else '' }}"
+                   placeholder="Max Mustermann" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">E-Mail-Adresse</label>
+            <input type="email" name="pilot_email" class="form-control"
+                   value="{{ profile.pilot_email if profile else '' }}"
+                   placeholder="max.mustermann@tpcag.ch">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Firma / Arbeitgeber</label>
+            <input type="text" name="pilot_company" class="form-control"
+                   value="{{ profile.pilot_company if profile else '' }}"
+                   placeholder="z.B. TPC AG oder SRF">
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Private Adresse</label>
+            <input type="text" name="pilot_address" class="form-control"
+                   value="{{ profile.pilot_address if profile else '' }}"
+                   placeholder="Musterstrasse 1, 8000 Zürich">
+            <div class="form-text">Wird gemäss Weisung für Firmenangestellte benötigt.</div>
+          </div>
+          <button type="submit" class="btn btn-srg w-100">
+            <i class="bi bi-floppy me-1"></i>Profil speichern
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Passwort ändern -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header section-header">
+        <i class="bi bi-lock me-2"></i>Passwort ändern
+      </div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="action" value="change_password">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Aktuelles Passwort</label>
+            <input type="password" name="old_password" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Neues Passwort <span class="text-muted">(min. 6 Zeichen)</span></label>
+            <input type="password" name="new_password" class="form-control" minlength="6" required>
+          </div>
+          <button type="submit" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-key me-1"></i>Passwort ändern
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Drohnenflotte -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header section-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-send me-2"></i>Meine Drohnen</span>
+        <button class="btn btn-sm btn-outline-light" type="button"
+                data-bs-toggle="collapse" data-bs-target="#addAircraftForm">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+      </div>
+
+      <!-- Drohne hinzufügen (collapsible) -->
+      <div class="collapse" id="addAircraftForm">
+        <div class="card-body border-bottom bg-light">
+          <h6 class="fw-semibold mb-3">Neue Drohne hinzufügen</h6>
+          <form method="post">
+            <input type="hidden" name="action" value="add_aircraft">
+            <div class="row g-2">
+              <div class="col-12">
+                <input type="text" name="ac_name" class="form-control form-control-sm"
+                       placeholder="Bezeichnung / Name *" required>
+              </div>
+              <div class="col-6">
+                <input type="text" name="ac_brand" class="form-control form-control-sm"
+                       placeholder="Marke (z.B. DJI)">
+              </div>
+              <div class="col-6">
+                <input type="text" name="ac_type" class="form-control form-control-sm"
+                       placeholder="Typ / Seriennummer">
+              </div>
+              <div class="col-6">
+                <input type="text" name="ac_reg" class="form-control form-control-sm"
+                       placeholder="Reg.-Nr. (eID)">
+              </div>
+              <div class="col-6">
+                <input type="text" name="ac_equip" class="form-control form-control-sm"
+                       placeholder="Spez. Ausstattung">
+              </div>
+              <div class="col-12">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" name="ac_default" id="acDefault">
+                  <label class="form-check-label small" for="acDefault">Als Standard verwenden</label>
+                </div>
+              </div>
+              <div class="col-12">
+                <button type="submit" class="btn btn-srg btn-sm w-100">
+                  <i class="bi bi-plus-circle me-1"></i>Drohne speichern
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Drohnenliste -->
+      <div class="list-group list-group-flush">
+        {% if aircraft_list %}
+          {% for ac in aircraft_list %}
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <strong>{{ ac.name }}</strong>
+                {% if ac.is_default %}<span class="badge bg-srg ms-1 small">Standard</span>{% endif %}
+                <br>
+                <span class="text-muted small">
+                  {{ ac.brand }} {{ ac.type_serial }}
+                  {% if ac.registration %} · {{ ac.registration }}{% endif %}
+                  {% if ac.equipment %} · {{ ac.equipment }}{% endif %}
+                </span>
+              </div>
+              <div class="d-flex gap-1">
+                {% if not ac.is_default %}
+                <form method="post" class="d-inline">
+                  <input type="hidden" name="action" value="set_default">
+                  <input type="hidden" name="ac_id" value="{{ ac.id }}">
+                  <button type="submit" class="btn btn-outline-secondary btn-sm" title="Als Standard">
+                    <i class="bi bi-star"></i>
+                  </button>
+                </form>
+                {% endif %}
+                <form method="post" class="d-inline"
+                      onsubmit="return confirm('Drohne «{{ ac.name }}» wirklich löschen?')">
+                  <input type="hidden" name="action" value="delete_aircraft">
+                  <input type="hidden" name="ac_id" value="{{ ac.id }}">
+                  <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="list-group-item text-muted text-center py-3">
+            <i class="bi bi-send-x me-1"></i>Noch keine Drohnen hinterlegt.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

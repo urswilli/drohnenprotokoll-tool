@@ -1,0 +1,13 @@
+# Datenbank
+*.db
+
+# Generierte Bilder/Output
+pdf_images/
+output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/

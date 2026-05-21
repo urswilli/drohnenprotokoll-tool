@@ -1,0 +1,471 @@
+{% extends "base.html" %}
+{% block title %}Drohnenprotokoll ausfüllen{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2 text-srg"></i>Drohnenprotokoll</h4>
+    <p class="text-muted small mb-0">Weisung und Checkliste für den Einsatz von Drohnen – V500e</p>
+  </div>
+  <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLocation">
+    <i class="bi bi-geo-alt-fill me-1"></i> Standort &amp; Wetter ermitteln
+  </button>
+</div>
+
+<form method="post" action="{{ url_for('submit') }}" id="drohnenForm">
+
+<!-- ═══════════════════════════ 1. DROHNENHALTER ════════════════════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-building me-2"></i>Firma und Adresse des Drohnenhalters
+    <span class="badge bg-secondary ms-2 fw-normal">Fix</span>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label text-muted small">Firmenname</label>
+        <input type="text" class="form-control bg-light" value="Schweizer Radio und Fernsehen (SRF)" readonly>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label text-muted small">Adresse</label>
+        <input type="text" class="form-control bg-light" value="Fernsehstrasse 1-4, 8052 Zürich" readonly>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ 2. DROHNENPILOT ════════════════════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-person-badge me-2"></i>Firmenanschrift und Name / Adresse des Drohnenpiloten
+    <span class="badge bg-profile ms-2 fw-normal"><i class="bi bi-person-fill me-1"></i>Profil</span>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Vorname, Name des Piloten <span class="text-danger">*</span></label>
+        <input type="text" name="pilot_name" class="form-control" required
+               value="{{ profile.pilot_name if profile else '' }}"
+               placeholder="z.B. Max Mustermann">
+        <div class="form-text">Aus Ihrem Profil. <a href="{{ url_for('profile') }}">Profil bearbeiten</a></div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">E-Mail Drohnenpilot <span class="text-danger">*</span></label>
+        <input type="email" name="pilot_email" class="form-control"
+               value="{{ profile.pilot_email if profile else '' }}"
+               placeholder="pilot@example.com">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Firmenzugehörigkeit des Piloten</label>
+        <input type="text" name="pilot_company" class="form-control"
+               value="{{ profile.pilot_company if profile else '' }}"
+               placeholder="z.B. TPC AG oder SRF">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Private Adresse des Piloten</label>
+        <input type="text" name="pilot_address" class="form-control"
+               value="{{ profile.pilot_address if profile else '' }}"
+               placeholder="Strasse, PLZ Ort">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ 3. REDAKTION / EINSATZVERANTWORTLICHER ══════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-people me-2"></i>Redaktion / Abteilung UE und Einsatzverantwortlicher SRG
+    <span class="badge bg-manual ms-2 fw-normal"><i class="bi bi-pencil me-1"></i>Manuell</span>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Redaktion <span class="text-danger">*</span></label>
+        <input type="text" name="redaktion" class="form-control" required
+               placeholder="z.B. DOK, Tagesschau, SRF News">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">SRG-UE</label>
+        <input type="text" name="srg_ue" class="form-control" placeholder="z.B. SRF, RTS, RSI">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Name Einsatzverantwortliche/r</label>
+        <input type="text" name="eva_name" class="form-control" placeholder="Vorname Nachname">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">E-Mail Einsatzverantwortliche/r SRG</label>
+        <input type="email" name="eva_email" class="form-control" placeholder="eva@srf.ch">
+        <div class="form-text">Wird in CC gesetzt beim E-Mail-Versand.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ 4. LUFTFAHRZEUG ════════════════════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-send me-2"></i>Luftfahrzeug (Drohne)
+    <span class="badge bg-dropdown ms-2 fw-normal"><i class="bi bi-list-ul me-1"></i>Dropdown</span>
+  </div>
+  <div class="card-body">
+    {% if aircraft_list %}
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Drohne auswählen</label>
+      <select class="form-select" id="aircraftSelect">
+        <option value="">– Drohne wählen –</option>
+        {% for ac in aircraft_list %}
+        <option value="{{ ac.id }}"
+                data-brand="{{ ac.brand }}"
+                data-type="{{ ac.type_serial }}"
+                data-reg="{{ ac.registration }}"
+                data-equip="{{ ac.equipment }}"
+                {% if ac.is_default %}selected{% endif %}>
+          {{ ac.name }}{% if ac.is_default %} (Standard){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% else %}
+    <div class="alert alert-info py-2">
+      <i class="bi bi-info-circle me-1"></i>
+      Noch keine Drohnen hinterlegt. <a href="{{ url_for('profile') }}">Jetzt im Profil hinzufügen</a>
+    </div>
+    {% endif %}
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Marke <span class="text-danger">*</span></label>
+        <input type="text" name="drone_brand" id="droneBrand" class="form-control" required placeholder="z.B. DJI">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Typ / Seriennummer</label>
+        <input type="text" name="drone_type" id="droneType" class="form-control" placeholder="z.B. Mavic 3 Pro">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Reg.-Nr. (eID)</label>
+        <input type="text" name="drone_reg" id="droneReg" class="form-control" placeholder="z.B. CHE-XXXX">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Spez. Ausstattung</label>
+        <input type="text" name="drone_equipment" id="droneEquip" class="form-control" placeholder="z.B. Fallschirm, Transponder">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ 5. DREHDATUM ═══════════════════════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-calendar-date me-2"></i>Drehdatum
+    <span class="badge bg-auto ms-2 fw-normal"><i class="bi bi-magic me-1"></i>Automatisch</span>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Drehdatum <span class="text-danger">*</span></label>
+        <input type="date" name="drehdatum" id="drehdatum" class="form-control" required
+               value="{{ today.replace('/','-') }}">
+        <div class="form-text">Format: JJJJ/MM/TT (wird automatisch konvertiert)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ 6. DREHORT & KOORDINATEN ══════════════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-geo-alt me-2"></i>Drehort mit Koordinaten
+    <span class="badge bg-auto ms-2 fw-normal"><i class="bi bi-geo-fill me-1"></i>GPS</span>
+  </div>
+  <div class="card-body">
+    <div id="locationStatus" class="alert alert-info py-2 d-none">
+      <div class="d-flex align-items-center gap-2">
+        <div class="spinner-border spinner-border-sm text-info" id="locationSpinner"></div>
+        <span id="locationStatusText">Standort wird ermittelt…</span>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Drehort / Bezirk <span class="text-danger">*</span></label>
+        <input type="text" name="drehort" id="drehort" class="form-control" required
+               placeholder="z.B. Zürich, Bezirk Zürich">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Geo-Koordinaten</label>
+        <input type="text" name="koordinaten" id="koordinaten" class="form-control"
+               placeholder="z.B. 47°25'5''N / 8°33'38''O">
+        <div class="form-text">Wird automatisch aus GPS ermittelt.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ 7. VERWENDUNGSZWECK / SENDEFORMAT ═════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-camera-video me-2"></i>Verwendungszweck / Sendeformat
+    <span class="badge bg-dropdown ms-2 fw-normal"><i class="bi bi-list-ul me-1"></i>Dropdown</span>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Verwendungszweck <span class="text-danger">*</span></label>
+        <select name="verwendungszweck" id="verwendungszweckSelect" class="form-select" required>
+          <option value="">– Zweck wählen –</option>
+          {% for vz in verwendungszwecke %}
+          <option value="{{ vz }}" {% if vz == 'Flugaufnahme für Film & Fernsehen' %}selected{% endif %}>{{ vz }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Sendeformat / Sendung <span class="text-danger">*</span></label>
+        <div class="input-group">
+          <select class="form-select" id="sendeformatSelect">
+            <option value="">– Format wählen –</option>
+            {% for sf in sendeformate %}
+            <option value="{{ sf }}">{{ sf }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="sendeformat" id="sendeformat" class="form-control"
+                 placeholder="oder Freitext…" required>
+        </div>
+        <div class="form-text">Dropdown wählen oder Freitext eingeben.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ 8. WETTERLAGE ══════════════════════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-cloud-sun me-2"></i>Wetterlage und -prognosen am Drehort
+    <span class="badge bg-auto ms-2 fw-normal"><i class="bi bi-cloud-fill me-1"></i>Wetter-API</span>
+  </div>
+  <div class="card-body">
+    <div class="col-12">
+      <label class="form-label fw-semibold">Wetterlage / visuelle Beurteilung <span class="text-danger">*</span></label>
+      <textarea name="wetterlage" id="wetterlage" class="form-control" rows="3" required
+                placeholder="Automatisch befüllt nach Standortermittlung – oder manuell eingeben…"></textarea>
+      <div class="form-text">
+        <i class="bi bi-info-circle me-1"></i>
+        Visuelle Prüfung und Beurteilung der Wetterlage vor Ort ist zwingend.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ 9. SICHERHEITS- UND RISIKOBEURTEILUNG ══════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-shield-check me-2"></i>Sicherheits- und Risikobeurteilung
+    <span class="badge bg-manual ms-2 fw-normal"><i class="bi bi-pencil me-1"></i>Manuell</span>
+  </div>
+  <div class="card-body">
+    <label class="form-label fw-semibold">Beurteilung <span class="text-danger">*</span></label>
+    <textarea name="risikobeurteilung" class="form-control" rows="3" required
+              placeholder="Persönliche Beurteilung der Sicherheitsrisiken, Angaben bei bewilligungspflichtigen Flügen oder externe Risikobeurteilung bei Spezialanwendungen…"></textarea>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ 10. FLUGDAUER ══════════════════════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-stopwatch me-2"></i>Flugdauer
+    <span class="badge bg-manual ms-2 fw-normal"><i class="bi bi-pencil me-1"></i>Manuell</span>
+  </div>
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-6 col-md-3">
+        <label class="form-label fw-semibold">Startzeit (erster Flug)</label>
+        <input type="time" name="startzeit" id="startzeit" class="form-control" placeholder="HH:MM">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label fw-semibold">Landezeit (letzter Flug)</label>
+        <input type="time" name="landezeit" id="landezeit" class="form-control" placeholder="HH:MM">
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label fw-semibold">Flugminuten gesamt</label>
+        <input type="number" name="flugminuten" id="flugminuten" class="form-control" min="0"
+               placeholder="z.B. 45">
+        <div class="form-text">Wird automatisch berechnet.</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label fw-semibold">Anzahl Flüge</label>
+        <input type="number" name="anzahl_fluege" class="form-control" min="1" placeholder="z.B. 3">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ 11. BESONDERE EREIGNISSE ═══════════════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-exclamation-triangle me-2"></i>Besondere Ereignisse / Vorkommnisse
+    <span class="badge bg-auto ms-2 fw-normal"><i class="bi bi-magic me-1"></i>Standard</span>
+  </div>
+  <div class="card-body">
+    <label class="form-label fw-semibold">Kommentar</label>
+    <textarea name="besondere_ereignisse" class="form-control" rows="2">Keine besonderen Vorkommnisse</textarea>
+    <div class="form-text">Kontrolllverlust, Abstürze, Reaktionen, Störungen durch Dritte etc. angeben.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ 12. CHECKLISTE ══════════════════════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-check2-square me-2"></i>Checkliste für Drohnenflüge (§3)
+    <span class="badge bg-auto ms-2 fw-normal">Vorgehakt</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="alert alert-warning m-3 py-2 mb-0">
+      <i class="bi bi-exclamation-circle me-1"></i>
+      Alle Punkte sind <strong>wahrheitsgetreu</strong> auszufüllen. Entfernen Sie Haken nur wenn ein Punkt nicht zutrifft.
+    </div>
+    <ul class="list-group list-group-flush">
+      {% for num, is_sub, text in checklist %}
+      <li class="list-group-item {% if is_sub %}ps-5 bg-light{% endif %}">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="cb_{{ num }}" id="cb{{ num }}" value="on" checked>
+          <label class="form-check-label {% if is_sub %}text-muted{% endif %}" for="cb{{ num }}">
+            {% if not is_sub %}<strong>{{ loop.index - loop.index0|int }}.</strong> {% endif %}
+            {{ text }}
+          </label>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    <div class="p-3 text-muted small">
+      * NOTAM: Notice to Airmen &nbsp;|&nbsp; ** DABS: Daily Airspace Bulletin Switzerland
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ 13. BESTÄTIGUNG & UNTERSCHRIFTEN ═══════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-pen me-2"></i>Bestätigung und Unterschriften (§4)
+  </div>
+  <div class="card-body">
+    <div class="row g-4">
+      <!-- Einsatzverantwortliche/r -->
+      <div class="col-md-6">
+        <h6 class="fw-bold text-muted mb-3 border-bottom pb-2">Einsatzverantwortliche/r SRG</h6>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Ort</label>
+          <input type="text" name="ort_eva" id="ort_eva" class="form-control"
+                 placeholder="Automatisch aus GPS oder manuell">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Datum</label>
+          <input type="date" name="datum_eva" id="datum_eva" class="form-control"
+                 value="{{ today.replace('/','-') }}">
+        </div>
+        <div class="mb-0">
+          <label class="form-label fw-semibold">Name / E-Mail Einsatzverantwortliche/r</label>
+          <input type="text" name="eva_signature" class="form-control"
+                 placeholder="Vorname Nachname oder E-Mail">
+          <div class="form-text">
+            Bei elektronischem Versand reicht die E-Mailadresse.
+          </div>
+        </div>
+      </div>
+      <!-- Drohnenpilot -->
+      <div class="col-md-6">
+        <h6 class="fw-bold text-muted mb-3 border-bottom pb-2">Drohnenpilot</h6>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Ort</label>
+          <input type="text" name="ort_pilot" id="ort_pilot" class="form-control"
+                 placeholder="Automatisch aus GPS oder manuell">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Datum</label>
+          <input type="date" name="datum_pilot" id="datum_pilot" class="form-control"
+                 value="{{ today.replace('/','-') }}">
+        </div>
+        <div class="mb-0">
+          <label class="form-label fw-semibold">Name / E-Mail Drohnenpilot</label>
+          <input type="text" name="pilot_signature" class="form-control"
+                 value="{{ profile.pilot_name if profile else '' }}"
+                 placeholder="Vorname Nachname oder E-Mail">
+          <div class="form-text">
+            Aus Profil. Bei elektronischem Versand reicht die E-Mailadresse.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ 14. VERSAND ════════════════════════════════ -->
+<div class="card mb-4 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-send me-2"></i>Formular abschliessen und senden
+  </div>
+  <div class="card-body">
+    <div class="alert alert-light border mb-3">
+      <p class="mb-1"><strong>Empfänger:</strong> drohnen@srf.ch &amp; eng-service@srf.ch</p>
+      <p class="mb-0 text-muted small">CC: Einsatzverantwortliche/r SRG &amp; Drohnenpilot (falls E-Mail angegeben)</p>
+    </div>
+    <div class="form-check mb-3">
+      <input type="checkbox" class="form-check-input" name="send_email" id="sendEmail" value="on" checked>
+      <label class="form-check-label" for="sendEmail">
+        Ausgefülltes PDF per E-Mail versenden <span class="text-muted">(SMTP muss konfiguriert sein)</span>
+      </label>
+    </div>
+    <div class="form-check mb-4">
+      <input type="checkbox" class="form-check-input" name="ja_confirm" id="jaConfirm" value="on" required>
+      <label class="form-check-label fw-semibold" for="jaConfirm">
+        <i class="bi bi-check-circle-fill text-success me-1"></i>
+        Alle Felder wurden wahrheitsgetreu ausgefüllt. Ich bestätige dies mit meiner Signatur.
+      </label>
+    </div>
+    <div class="d-flex gap-3 flex-wrap">
+      <button type="submit" class="btn btn-srg btn-lg px-4 fw-bold">
+        <i class="bi bi-send-fill me-2"></i>PDF erstellen &amp; senden
+      </button>
+      <button type="reset" class="btn btn-outline-secondary btn-lg px-4">
+        <i class="bi bi-arrow-counterclockwise me-2"></i>Formular zurücksetzen
+      </button>
+    </div>
+  </div>
+</div>
+
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-fill aircraft from dropdown
+document.getElementById('aircraftSelect')?.addEventListener('change', function() {
+  const opt = this.options[this.selectedIndex];
+  document.getElementById('droneBrand').value  = opt.dataset.brand  || '';
+  document.getElementById('droneType').value   = opt.dataset.type   || '';
+  document.getElementById('droneReg').value    = opt.dataset.reg    || '';
+  document.getElementById('droneEquip').value  = opt.dataset.equip  || '';
+});
+
+// Auto-fill sendeformat from dropdown
+document.getElementById('sendeformatSelect')?.addEventListener('change', function() {
+  if (this.value) document.getElementById('sendeformat').value = this.value;
+});
+
+// Auto-calculate flight minutes
+function calcFlugminuten() {
+  const start = document.getElementById('startzeit').value;
+  const land  = document.getElementById('landezeit').value;
+  if (start && land) {
+    const [sh,sm] = start.split(':').map(Number);
+    const [lh,lm] = land.split(':').map(Number);
+    const mins = (lh*60+lm) - (sh*60+sm);
+    if (mins > 0) document.getElementById('flugminuten').value = mins;
+  }
+}
+document.getElementById('startzeit')?.addEventListener('change', calcFlugminuten);
+document.getElementById('landezeit')?.addEventListener('change', calcFlugminuten);
+
+// Trigger default aircraft selection on load
+window.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('aircraftSelect');
+  if (sel && sel.value) sel.dispatchEvent(new Event('change'));
+});
+</script>
+{% endblock %}
