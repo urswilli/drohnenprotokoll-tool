@@ -126,50 +126,128 @@
       </div>
 
       <!-- Drohnenliste -->
-      <div class="list-group list-group-flush">
-        {% if aircraft_list %}
-          {% for ac in aircraft_list %}
-          <div class="list-group-item">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
+      {% if aircraft_list %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Name</th>
+              <th>Marke / Typ</th>
+              <th>Reg.-Nr.</th>
+              <th>Ausstattung</th>
+              <th class="text-end"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ac in aircraft_list %}
+            <tr>
+              <td>
                 <strong>{{ ac.name }}</strong>
                 {% if ac.is_default %}<span class="badge bg-srg ms-1 small">Standard</span>{% endif %}
-                <br>
-                <span class="text-muted small">
-                  {{ ac.brand }} {{ ac.type_serial }}
-                  {% if ac.registration %} · {{ ac.registration }}{% endif %}
-                  {% if ac.equipment %} · {{ ac.equipment }}{% endif %}
-                </span>
-              </div>
-              <div class="d-flex gap-1">
-                {% if not ac.is_default %}
-                <form method="post" class="d-inline">
-                  <input type="hidden" name="action" value="set_default">
-                  <input type="hidden" name="ac_id" value="{{ ac.id }}">
-                  <button type="submit" class="btn btn-outline-secondary btn-sm" title="Als Standard">
-                    <i class="bi bi-star"></i>
+              </td>
+              <td class="text-muted small">{{ ac.brand }}{% if ac.type_serial %} · {{ ac.type_serial }}{% endif %}</td>
+              <td class="text-muted font-monospace small">{{ ac.registration or '–' }}</td>
+              <td class="text-muted small">{{ ac.equipment or '–' }}</td>
+              <td class="text-end">
+                <div class="d-flex gap-1 justify-content-end">
+                  <button type="button" class="btn btn-outline-secondary btn-sm"
+                          data-bs-toggle="modal" data-bs-target="#editAircraftModal"
+                          data-id="{{ ac.id }}"
+                          data-name="{{ ac.name }}"
+                          data-brand="{{ ac.brand }}"
+                          data-type="{{ ac.type_serial }}"
+                          data-reg="{{ ac.registration }}"
+                          data-equip="{{ ac.equipment }}">
+                    <i class="bi bi-pencil"></i>
                   </button>
-                </form>
-                {% endif %}
-                <form method="post" class="d-inline"
-                      onsubmit="return confirm('Drohne «{{ ac.name }}» wirklich löschen?')">
-                  <input type="hidden" name="action" value="delete_aircraft">
-                  <input type="hidden" name="ac_id" value="{{ ac.id }}">
-                  <button type="submit" class="btn btn-outline-danger btn-sm">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-          {% endfor %}
-        {% else %}
-          <div class="list-group-item text-muted text-center py-3">
-            <i class="bi bi-send-x me-1"></i>Noch keine Drohnen hinterlegt.
-          </div>
-        {% endif %}
+                  {% if not ac.is_default %}
+                  <form method="post" class="d-inline">
+                    <input type="hidden" name="action" value="set_default">
+                    <input type="hidden" name="ac_id" value="{{ ac.id }}">
+                    <button type="submit" class="btn btn-outline-secondary btn-sm" title="Als Standard">
+                      <i class="bi bi-star"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                  <form method="post" class="d-inline"
+                        onsubmit="return confirm('Drohne «{{ ac.name }}» wirklich löschen?')">
+                    <input type="hidden" name="action" value="delete_aircraft">
+                    <input type="hidden" name="ac_id" value="{{ ac.id }}">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
+      {% else %}
+      <div class="p-3 text-muted text-center">
+        <i class="bi bi-send-x me-1"></i>Noch keine Drohnen hinterlegt.
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
+
+<!-- Edit-Aircraft Modal -->
+<div class="modal fade" id="editAircraftModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Drohne bearbeiten</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post">
+        <input type="hidden" name="action" value="edit_aircraft">
+        <input type="hidden" name="ac_id" id="editAcId">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Bezeichnung / Name *</label>
+            <input type="text" name="ac_name" id="editAcName" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Marke</label>
+            <input type="text" name="ac_brand" id="editAcBrand" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Typ / Seriennummer</label>
+            <input type="text" name="ac_type" id="editAcType" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Reg.-Nr. (eID)</label>
+            <input type="text" name="ac_reg" id="editAcReg" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Spez. Ausstattung</label>
+            <input type="text" name="ac_equip" id="editAcEquip" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="submit" class="btn btn-srg">
+            <i class="bi bi-floppy me-1"></i>Speichern
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('editAircraftModal')?.addEventListener('show.bs.modal', function(e) {
+  const btn = e.relatedTarget;
+  document.getElementById('editAcId').value    = btn.dataset.id;
+  document.getElementById('editAcName').value  = btn.dataset.name;
+  document.getElementById('editAcBrand').value = btn.dataset.brand;
+  document.getElementById('editAcType').value  = btn.dataset.type;
+  document.getElementById('editAcReg').value   = btn.dataset.reg;
+  document.getElementById('editAcEquip').value = btn.dataset.equip;
+});
+</script>
 {% endblock %}

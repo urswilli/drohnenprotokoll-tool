@@ -406,6 +406,12 @@ def submit():
         flash(f'Fehler beim PDF-Erstellen: {e}', 'danger')
         return redirect(url_for('index'))
 
+    sf = form_data.get('sendeformat', '').strip()
+    if sf:
+        with get_db() as conn:
+            conn.execute('INSERT OR IGNORE INTO sendeformate(name) VALUES(?)', (sf,))
+            conn.commit()
+
     email_sent = False
     email_msg = ''
     if form_data.get('send_email') == 'on':
@@ -514,6 +520,19 @@ def profile():
                      1 if request.form.get('ac_default') else 0))
                 conn.commit()
                 flash('Drohne hinzugefügt.', 'success')
+
+            elif action == 'edit_aircraft':
+                ac_id = request.form.get('ac_id')
+                conn.execute('''UPDATE aircraft SET name=?, brand=?, type_serial=?, registration=?, equipment=?
+                                WHERE id=? AND user_id=?''',
+                    (request.form.get('ac_name', ''),
+                     request.form.get('ac_brand', ''),
+                     request.form.get('ac_type', ''),
+                     request.form.get('ac_reg', ''),
+                     request.form.get('ac_equip', ''),
+                     ac_id, user_id))
+                conn.commit()
+                flash('Drohne aktualisiert.', 'success')
 
             elif action == 'delete_aircraft':
                 ac_id = request.form.get('ac_id')

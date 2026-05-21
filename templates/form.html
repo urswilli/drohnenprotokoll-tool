@@ -86,15 +86,15 @@
       </div>
       <div class="col-md-4">
         <label class="form-label fw-semibold">SRG-UE</label>
-        <input type="text" name="srg_ue" class="form-control" placeholder="z.B. SRF, RTS, RSI">
+        <input type="text" name="srg_ue" class="form-control" value="SRF" placeholder="z.B. SRF, RTS, RSI">
       </div>
       <div class="col-md-4">
         <label class="form-label fw-semibold">Name Einsatzverantwortliche/r</label>
-        <input type="text" name="eva_name" class="form-control" placeholder="Vorname Nachname">
+        <input type="text" name="eva_name" id="evaName" class="form-control" placeholder="Vorname Nachname">
       </div>
       <div class="col-md-6">
         <label class="form-label fw-semibold">E-Mail Einsatzverantwortliche/r SRG</label>
-        <input type="email" name="eva_email" class="form-control" placeholder="eva@srf.ch">
+        <input type="email" name="eva_email" id="evaEmail" class="form-control" placeholder="vorname.nachname@srf.ch">
         <div class="form-text">Wird in CC gesetzt beim E-Mail-Versand.</div>
       </div>
     </div>
@@ -108,20 +108,37 @@
     <span class="badge bg-dropdown ms-2 fw-normal"><i class="bi bi-list-ul me-1"></i>Dropdown</span>
   </div>
   <div class="card-body">
-    {% if drones %}
+    {% if drones or aircraft_list %}
     <div class="mb-3">
       <label class="form-label fw-semibold">Drohne auswählen</label>
       <select class="form-select" id="droneSelect">
         <option value="">– Drohne wählen –</option>
-        {% for d in drones %}
-        <option value="{{ d.id }}"
-                data-name="{{ d.name }}"
-                data-typ="{{ d.typ }}"
-                data-seriennummer="{{ d.seriennummer }}"
-                data-reg_nr="{{ d.reg_nr }}">
-          {{ d.name }}{% if d.typ %} – {{ d.typ }}{% endif %}
-        </option>
-        {% endfor %}
+        {% if aircraft_list %}
+        <optgroup label="Meine Drohnen">
+          {% for ac in aircraft_list %}
+          <option value="ac_{{ ac.id }}"
+                  data-name="{{ ac.brand }}"
+                  data-typ="{{ ac.type_serial }}"
+                  data-seriennummer=""
+                  data-reg_nr="{{ ac.registration }}">
+            {{ ac.name }}{% if ac.brand %} – {{ ac.brand }}{% endif %}{% if ac.is_default %} ★{% endif %}
+          </option>
+          {% endfor %}
+        </optgroup>
+        {% endif %}
+        {% if drones %}
+        <optgroup label="SRG-Drohnen">
+          {% for d in drones %}
+          <option value="{{ d.id }}"
+                  data-name="{{ d.name }}"
+                  data-typ="{{ d.typ }}"
+                  data-seriennummer="{{ d.seriennummer }}"
+                  data-reg_nr="{{ d.reg_nr }}">
+            {{ d.name }}{% if d.typ %} – {{ d.typ }}{% endif %}
+          </option>
+          {% endfor %}
+        </optgroup>
+        {% endif %}
       </select>
     </div>
     {% else %}
@@ -364,10 +381,15 @@
           <input type="date" name="datum_eva" id="datum_eva" class="form-control"
                  value="{{ today.replace('/','-') }}">
         </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">Vorname / Nachname</label>
+          <input type="text" name="eva_signature" id="evaSignatureName" class="form-control"
+                 placeholder="Vorname Nachname">
+        </div>
         <div class="mb-0">
-          <label class="form-label fw-semibold">Name / E-Mail Einsatzverantwortliche/r</label>
-          <input type="text" name="eva_signature" class="form-control"
-                 placeholder="Vorname Nachname oder E-Mail">
+          <label class="form-label fw-semibold">E-Mail</label>
+          <input type="email" name="eva_signature_email" id="evaSignatureEmail" class="form-control"
+                 placeholder="eva@srf.ch">
           <div class="form-text">
             Bei elektronischem Versand reicht die E-Mailadresse.
           </div>
@@ -466,6 +488,24 @@ function calcFlugminuten() {
 }
 document.getElementById('startzeit')?.addEventListener('change', calcFlugminuten);
 document.getElementById('landezeit')?.addEventListener('change', calcFlugminuten);
+
+// Sync EVA-Signaturfelder aus Sektion 3
+function syncEva() {
+  const name  = document.getElementById('evaName')?.value  || '';
+  const email = document.getElementById('evaEmail')?.value || '';
+  const sigName  = document.getElementById('evaSignatureName');
+  const sigEmail = document.getElementById('evaSignatureEmail');
+  if (sigName  && !sigName.dataset.manuallyEdited)  sigName.value  = name;
+  if (sigEmail && !sigEmail.dataset.manuallyEdited) sigEmail.value = email;
+}
+['evaSignatureName','evaSignatureEmail'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', function() {
+    this.dataset.manuallyEdited = 'true';
+  });
+});
+document.getElementById('evaName')?.addEventListener('input', syncEva);
+document.getElementById('evaEmail')?.addEventListener('input', syncEva);
+syncEva();
 
 </script>
 {% endblock %}
