@@ -47,7 +47,7 @@
         <input type="text" name="pilot_name" class="form-control" required
                value="{{ profile.pilot_name if profile else '' }}"
                placeholder="z.B. Max Mustermann">
-        <div class="form-text">Aus Ihrem Profil. <a href="{{ url_for('profile') }}">Profil bearbeiten</a></div>
+        <div class="form-text">Aus deinem Profil. <a href="{{ url_for('profile') }}">Profil bearbeiten</a></div>
       </div>
       <div class="col-md-6">
         <label class="form-label fw-semibold">E-Mail Drohnenpilot <span class="text-danger">*</span></label>
@@ -180,7 +180,6 @@
         <label class="form-label fw-semibold">Drehdatum <span class="text-danger">*</span></label>
         <input type="date" name="drehdatum" id="drehdatum" class="form-control" required
                value="{{ today.replace('/','-') }}">
-        <div class="form-text">Format: JJJJ/MM/TT (wird automatisch konvertiert)</div>
       </div>
     </div>
   </div>
@@ -244,7 +243,6 @@
           <input type="text" name="sendeformat" id="sendeformat" class="form-control"
                  placeholder="oder Freitext…" required>
         </div>
-        <div class="form-text">Dropdown wählen oder Freitext eingeben.</div>
       </div>
     </div>
   </div>
@@ -261,10 +259,6 @@
       <label class="form-label fw-semibold">Wetterlage / visuelle Beurteilung <span class="text-danger">*</span></label>
       <textarea name="wetterlage" id="wetterlage" class="form-control" rows="3" required
                 placeholder="Automatisch befüllt nach Standortermittlung – oder manuell eingeben…"></textarea>
-      <div class="form-text">
-        <i class="bi bi-info-circle me-1"></i>
-        Visuelle Prüfung und Beurteilung der Wetterlage vor Ort ist zwingend.
-      </div>
     </div>
   </div>
 </div>
@@ -389,7 +383,7 @@
         <div class="mb-0">
           <label class="form-label fw-semibold">E-Mail</label>
           <input type="email" name="eva_signature_email" id="evaSignatureEmail" class="form-control"
-                 placeholder="eva@srf.ch">
+                 placeholder="vorname.nachname@srf.ch">
           <div class="form-text">
             Bei elektronischem Versand reicht die E-Mailadresse.
           </div>
@@ -435,7 +429,7 @@
     <div class="form-check mb-3">
       <input type="checkbox" class="form-check-input" name="send_email" id="sendEmail" value="on" checked>
       <label class="form-check-label" for="sendEmail">
-        Ausgefülltes PDF per E-Mail versenden <span class="text-muted">(SMTP muss konfiguriert sein)</span>
+        Ausgefülltes PDF per E-Mail versenden
       </label>
     </div>
     <div class="form-check mb-4">
@@ -506,6 +500,20 @@ function syncEva() {
 document.getElementById('evaName')?.addEventListener('input', syncEva);
 document.getElementById('evaEmail')?.addEventListener('input', syncEva);
 syncEva();
+
+// Empty required field highlighting
+function updateEmptyHighlight(el) {
+  const empty = !el.value || !el.value.trim();
+  el.classList.toggle('field-empty', empty);
+}
+function initEmptyHighlight() {
+  document.querySelectorAll('#drohnenForm [required]').forEach(el => {
+    updateEmptyHighlight(el);
+    el.addEventListener('input',  () => updateEmptyHighlight(el));
+    el.addEventListener('change', () => updateEmptyHighlight(el));
+  });
+}
+initEmptyHighlight();
 
 </script>
 {% endblock %}

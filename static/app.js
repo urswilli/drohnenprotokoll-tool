@@ -59,8 +59,8 @@ function requestLocation() {
         .then(data => {
           setField('drehort', data.location);
           setField('koordinaten', data.coordinates);
-          setField('ort_eva', data.location);
-          setField('ort_pilot', data.location);
+          setField('ort_eva', data.location_short || data.location);
+          setField('ort_pilot', data.location_short || data.location);
           setTextarea('wetterlage', data.weather);
           showStatus('Standort, Koordinaten und Wetterlage erfolgreich ermittelt.', true);
           setTimeout(hideStatus, 4000);

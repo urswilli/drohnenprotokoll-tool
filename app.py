@@ -189,7 +189,7 @@ def fill_pdf(form_data):
 
         # Pilot (from profile)
         'Text121': form_data.get('pilot_name', ''),
-        'Text131': form_data.get('pilot_name', ''),
+        'Text131': form_data.get('eva_name', ''),
         'Text132': form_data.get('pilot_address', ''),
 
         # Einsatz details
@@ -230,8 +230,8 @@ def fill_pdf(form_data):
         'Info.36': form_data.get('datum_eva', today),
         'Info.37': form_data.get('ort_pilot', ''),
         'Info.38': form_data.get('datum_pilot', today),
-        'Text13':  form_data.get('eva_email', ''),
-        'Text15':  form_data.get('pilot_email', ''),
+        'Text13':  form_data.get('eva_signature_email', '') or form_data.get('eva_email', ''),
+        'Text15':  form_data.get('pilot_signature', '') or form_data.get('pilot_email', ''),
 
         # Clear large instruction text fields
         'Info.01': '',
@@ -245,8 +245,9 @@ def fill_pdf(form_data):
         'Info.19': '',
         'Info.20': '',
         'Info.31': '',
-        'Info.33': form_data.get('eva_name', ''),
-        'Info.34': form_data.get('pilot_name', ''),
+        'Info.32': '',
+        'Info.33': '',
+        'Info.34': '',
 
         # JA confirmation
         'JA': '/Ja',
@@ -445,7 +446,7 @@ def location_data():
     except (ValueError, TypeError):
         return jsonify({'error': 'Invalid coordinates'}), 400
 
-    result = {'location': '', 'coordinates': format_coordinates(lat, lon), 'weather': ''}
+    result = {'location': '', 'location_short': '', 'coordinates': format_coordinates(lat, lon), 'weather': ''}
 
     # Reverse geocoding
     try:
@@ -461,6 +462,7 @@ def location_data():
         street = f"{road} {number}".strip()
         loc    = ', '.join(p for p in [street, f"{post} {city}".strip()] if p)
         result['location'] = loc if loc else geo.get('display_name', '')
+        result['location_short'] = f"{post} {city}".strip() if (post or city) else result['location']
     except Exception:
         pass
 
@@ -509,6 +511,9 @@ def profile():
                 flash('Profil gespeichert.', 'success')
 
             elif action == 'add_aircraft':
+                is_default = 1 if request.form.get('ac_default') else 0
+                if is_default:
+                    conn.execute('UPDATE aircraft SET is_default=0 WHERE user_id=?', (user_id,))
                 conn.execute('''INSERT INTO aircraft(user_id,name,brand,type_serial,registration,equipment,is_default)
                     VALUES(?,?,?,?,?,?,?)''',
                     (user_id,
@@ -517,7 +522,7 @@ def profile():
                      request.form.get('ac_type',''),
                      request.form.get('ac_reg',''),
                      request.form.get('ac_equip',''),
-                     1 if request.form.get('ac_default') else 0))
+                     is_default))
                 conn.commit()
                 flash('Drohne hinzugefügt.', 'success')
 
