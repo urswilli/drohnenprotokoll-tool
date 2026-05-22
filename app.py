@@ -95,6 +95,7 @@ def init_db():
                 pilot_email TEXT DEFAULT '',
                 pilot_company TEXT DEFAULT '',
                 pilot_address TEXT DEFAULT '',
+                pilot_company_address TEXT DEFAULT '',
                 FOREIGN KEY (user_id) REFERENCES users(id)
             );
             CREATE TABLE IF NOT EXISTS aircraft (
@@ -130,6 +131,10 @@ def init_db():
         ''')
         try:
             conn.execute("ALTER TABLE drones ADD COLUMN reg_nr TEXT DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE profiles ADD COLUMN pilot_company_address TEXT DEFAULT ''")
         except Exception:
             pass
         if conn.execute('SELECT COUNT(*) FROM sendeformate').fetchone()[0] == 0:
@@ -183,13 +188,13 @@ def fill_pdf(form_data):
     today = date.today().strftime('%Y/%m/%d')
 
     fields = {
-        # Fixed Drohnenhalter fields
-        'Text111': 'Schweizer Radio und Fernsehen (SRF)',
-        'Text112': 'Fernsehstrasse 1-4\n8052 Zürich',
+        # Drohnenhalter (aus Profil, mit SRF-Fallback)
+        'Text111': form_data.get('drone_holder_company', '').strip() or 'Schweizer Radio und Fernsehen (SRF)',
+        'Text112': form_data.get('drone_holder_address', '').strip() or 'Fernsehstrasse 1-4\n8052 Zürich',
 
-        # Pilot (from profile)
-        'Text121': form_data.get('pilot_name', ''),
-        'Text131': form_data.get('eva_name', ''),
+        # Text12x = EVA-Sektion (mit Redaktion/SRG-UE), Text13x = Pilot-Sektion (mit Wohnadresse)
+        'Text121': form_data.get('eva_name', ''),
+        'Text131': form_data.get('pilot_name', ''),
         'Text132': form_data.get('pilot_address', ''),
 
         # Einsatz details
@@ -245,9 +250,9 @@ def fill_pdf(form_data):
         'Info.19': '',
         'Info.20': '',
         'Info.31': '',
-        'Info.32': '',
-        'Info.33': '',
-        'Info.34': '',
+        'Info.32': '',                                # grüner Hinweistext oberhalb Ort/Datum – hide
+        'Info.33': form_data.get('eva_name', ''),     # "Vorname, Nachname" unter E-Mail (EVA)
+        'Info.34': form_data.get('pilot_name', ''),   # "Vorname, Nachname" unter E-Mail (Pilot)
 
         # JA confirmation
         'JA': '/Ja',
@@ -495,18 +500,20 @@ def profile():
             action = request.form.get('action')
 
             if action == 'save_profile':
-                conn.execute('''INSERT INTO profiles(user_id,pilot_name,pilot_email,pilot_company,pilot_address)
-                    VALUES(?,?,?,?,?)
+                conn.execute('''INSERT INTO profiles(user_id,pilot_name,pilot_email,pilot_company,pilot_address,pilot_company_address)
+                    VALUES(?,?,?,?,?,?)
                     ON CONFLICT(user_id) DO UPDATE SET
                     pilot_name=excluded.pilot_name,
                     pilot_email=excluded.pilot_email,
                     pilot_company=excluded.pilot_company,
-                    pilot_address=excluded.pilot_address''',
+                    pilot_address=excluded.pilot_address,
+                    pilot_company_address=excluded.pilot_company_address''',
                     (user_id,
                      request.form.get('pilot_name',''),
                      request.form.get('pilot_email',''),
                      request.form.get('pilot_company',''),
-                     request.form.get('pilot_address','')))
+                     request.form.get('pilot_address',''),
+                     request.form.get('pilot_company_address','')))
                 conn.commit()
                 flash('Profil gespeichert.', 'success')
 

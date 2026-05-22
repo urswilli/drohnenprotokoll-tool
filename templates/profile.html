@@ -33,12 +33,19 @@
                    value="{{ profile.pilot_company if profile else '' }}"
                    placeholder="z.B. TPC AG oder SRF">
           </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Firmenadresse</label>
+            <input type="text" name="pilot_company_address" class="form-control"
+                   value="{{ profile.pilot_company_address if profile else '' }}"
+                   placeholder="z.B. Fernsehstrasse 1-4, 8052 Zürich">
+            <div class="form-text">Wird im Hauptformular als Adresse des Drohnenhalters eingesetzt.</div>
+          </div>
           <div class="mb-4">
-            <label class="form-label fw-semibold">Adresse</label>
+            <label class="form-label fw-semibold">Privatadresse</label>
             <input type="text" name="pilot_address" class="form-control"
                    value="{{ profile.pilot_address if profile else '' }}"
-                   placeholder="Musterstrasse 1, 8000 Zürich">
-            <div class="form-text">Wird gemäss Weisung für Firmenangestellte benötigt.</div>
+                   placeholder="z.B. Musterstrasse 1, 8000 Zürich">
+            <div class="form-text">Wird gemäss Weisung für Firmenangestellte als private Adresse des Piloten benötigt.</div>
           </div>
           <button type="submit" class="btn btn-srg w-100">
             <i class="bi bi-floppy me-1"></i>Profil speichern

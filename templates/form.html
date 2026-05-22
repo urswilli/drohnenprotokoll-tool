@@ -15,20 +15,25 @@
 <form method="post" action="{{ url_for('submit') }}" id="drohnenForm">
 
 <!-- ═══════════════════════════ 1. DROHNENHALTER ════════════════════════════ -->
+{% set holder_company = (profile.pilot_company if profile and profile.pilot_company else 'Schweizer Radio und Fernsehen (SRF)') %}
+{% set holder_address = (profile.pilot_company_address if profile and profile.pilot_company_address else 'Fernsehstrasse 1-4, 8052 Zürich') %}
 <div class="card mb-3 border-0 shadow-sm">
   <div class="card-header section-header">
     <i class="bi bi-building me-2"></i>Firma und Adresse des Drohnenhalters
-    <span class="badge bg-secondary ms-2 fw-normal">Fix</span>
+    <span class="badge bg-profile ms-2 fw-normal"><i class="bi bi-person-fill me-1"></i>Profil</span>
   </div>
   <div class="card-body">
     <div class="row g-3">
       <div class="col-md-6">
         <label class="form-label text-muted small">Firmenname</label>
-        <input type="text" class="form-control bg-light" value="Schweizer Radio und Fernsehen (SRF)" readonly>
+        <input type="text" class="form-control bg-light" value="{{ holder_company }}" readonly>
+        <input type="hidden" name="drone_holder_company" value="{{ holder_company }}">
       </div>
       <div class="col-md-6">
         <label class="form-label text-muted small">Adresse</label>
-        <input type="text" class="form-control bg-light" value="Fernsehstrasse 1-4, 8052 Zürich" readonly>
+        <input type="text" class="form-control bg-light" value="{{ holder_address }}" readonly>
+        <input type="hidden" name="drone_holder_address" value="{{ holder_address }}">
+        <div class="form-text">Aus deinem Profil. <a href="{{ url_for('profile') }}">Profil bearbeiten</a></div>
       </div>
     </div>
   </div>
@@ -66,6 +71,7 @@
         <input type="text" name="pilot_address" class="form-control"
                value="{{ profile.pilot_address if profile else '' }}"
                placeholder="Strasse, PLZ Ort">
+        <div class="form-text">Aus deinem Profil (Private Adresse).</div>
       </div>
     </div>
   </div>
@@ -501,16 +507,20 @@ document.getElementById('evaName')?.addEventListener('input', syncEva);
 document.getElementById('evaEmail')?.addEventListener('input', syncEva);
 syncEva();
 
-// Empty required field highlighting
+// Empty field highlighting (alle Eingaben ausser Hidden/Checkbox/Readonly/Button)
 function updateEmptyHighlight(el) {
   const empty = !el.value || !el.value.trim();
   el.classList.toggle('field-empty', empty);
 }
 function initEmptyHighlight() {
-  document.querySelectorAll('#drohnenForm [required]').forEach(el => {
+  const selector =
+    '#drohnenForm input:not([type=hidden]):not([type=checkbox]):not([type=button]):not([type=submit]):not([type=reset]):not([readonly]), '
+    + '#drohnenForm select, #drohnenForm textarea';
+  document.querySelectorAll(selector).forEach(el => {
     updateEmptyHighlight(el);
     el.addEventListener('input',  () => updateEmptyHighlight(el));
     el.addEventListener('change', () => updateEmptyHighlight(el));
+    el.addEventListener('blur',   () => updateEmptyHighlight(el));
   });
 }
 initEmptyHighlight();
