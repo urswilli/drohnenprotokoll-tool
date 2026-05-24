@@ -18,7 +18,7 @@ def _hash(pw): return generate_password_hash(pw, method='pbkdf2:sha256')
 from pypdf import PdfReader, PdfWriter
 
 app = Flask(__name__)
-app.secret_key = 'drohnen-protokoll-srg-2024-secret'
+app.secret_key = os.environ.get('SECRET_KEY', 'drohnen-protokoll-srg-2024-secret')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PDF_PATH = os.path.join(BASE_DIR, 'SRG_Weisung und Checkliste für den Einsatz von Drohnen_V500e.pdf')

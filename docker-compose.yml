@@ -1,0 +1,25 @@
+services:
+  app:
+    image: ghcr.io/urswilli/drohnenprotokoll-tool:latest
+    restart: unless-stopped
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./data/drohnen.db:/app/drohnen.db
+      - ./data/output:/app/output
+    env_file: .env
+
+# ─── Deployment auf dem Pi ───────────────────────────────────────────────────
+#
+# Einmalig:
+#   git clone https://github.com/urswilli/drohnenprotokoll-tool.git
+#   cd drohnenprotokoll-tool
+#   mkdir -p data
+#   cp .env.example .env
+#   nano .env          # SECRET_KEY auf einen langen Zufallswert setzen
+#   docker compose up -d
+#
+# Update auf neue Version:
+#   docker compose pull && docker compose up -d
+#
+# Daten (DB + PDFs) liegen in ./data/ – einfaches Backup via rsync/cp
