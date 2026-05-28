@@ -22,8 +22,12 @@ app.secret_key = os.environ.get('SECRET_KEY', 'drohnen-protokoll-srg-2024-secret
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PDF_PATH = os.path.join(BASE_DIR, 'SRG_Weisung und Checkliste für den Einsatz von Drohnen_V500e.pdf')
-DB_PATH = os.path.join(BASE_DIR, 'drohnen.db')
-OUTPUT_DIR = os.path.join(BASE_DIR, 'output')
+
+# Im Docker-Container liegen DB und Output im gemounteten /app/data/,
+# lokal (Entwicklung) direkt neben app.py
+DATA_DIR   = os.environ.get('DATA_DIR', BASE_DIR)
+DB_PATH    = os.path.join(DATA_DIR, 'drohnen.db')
+OUTPUT_DIR = os.path.join(DATA_DIR, 'output')
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
