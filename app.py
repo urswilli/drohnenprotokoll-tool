@@ -731,14 +731,15 @@ def admin():
                            sendeformate=sendeformate, verwendungszwecke=verwendungszwecke)
 
 
+# Initialisierung beim Start (sowohl via Gunicorn als auch python3 app.py)
+init_db()
+with get_db() as conn:
+    count = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+    if count == 0:
+        conn.execute('INSERT INTO users(username,password_hash,is_admin) VALUES(?,?,1)',
+                     ('admin', _hash('drohnen2024')))
+        conn.commit()
+        print('Standard-Admin erstellt: admin / drohnen2024')
+
 if __name__ == '__main__':
-    init_db()
-    # Create default admin if no users exist
-    with get_db() as conn:
-        count = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
-        if count == 0:
-            conn.execute('INSERT INTO users(username,password_hash,is_admin) VALUES(?,?,1)',
-                         ('admin', _hash('drohnen2024')))
-            conn.commit()
-            print('Standard-Admin erstellt: admin / drohnen2024')
     app.run(debug=True, port=5050)
