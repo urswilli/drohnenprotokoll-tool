@@ -10,7 +10,29 @@ python3 app.py          # starts on http://localhost:5050 with debug=True
 
 The SQLite database (`drohnen.db`) and the `output/` folder are created automatically on first run. Default admin credentials are printed to the console on first launch (`admin` / `drohnen2024`).
 
-Dependencies (install via pip if missing): `flask`, `pypdf`, `werkzeug`
+Dependencies (install via pip if missing): `flask`, `pypdf`, `werkzeug`, `gunicorn`
+
+## Docker / Production Deployment
+
+The app is containerised for deployment on a Raspberry Pi 5 (arm64) via Portainer or plain Docker Compose.
+
+**GitHub Actions** (`.github/workflows/docker.yml`) builds and pushes a multi-arch image (`linux/amd64`, `linux/arm64`) to `ghcr.io/urswilli/drohnenprotokoll-tool:latest` on every push to `main`.
+
+**Data persistence** — volumes are mounted from `/opt/drohnenprotokoll/data/` on the host:
+- `/opt/drohnenprotokoll/data/drohnen.db` → `/app/drohnen.db`
+- `/opt/drohnenprotokoll/data/output` → `/app/output`
+- `/opt/drohnenprotokoll/data/.env` → env_file (contains `SECRET_KEY`)
+
+**First-time setup on Pi:**
+```bash
+sudo mkdir -p /opt/drohnenprotokoll/data
+python3 -c "import secrets; print(secrets.token_hex(32))"
+sudo nano /opt/drohnenprotokoll/data/.env   # SECRET_KEY=<value>
+```
+
+**Update:** `docker compose pull && docker compose up -d` (or Portainer → Stack → Pull and redeploy)
+
+`SECRET_KEY` is read from the `SECRET_KEY` environment variable; falls back to a hardcoded dev string when not set.
 
 ## Architecture
 

@@ -5,21 +5,28 @@ services:
     ports:
       - "5050:5050"
     volumes:
-      - ./data/drohnen.db:/app/drohnen.db
-      - ./data/output:/app/output
-    env_file: .env
+      - /opt/drohnenprotokoll/data/drohnen.db:/app/drohnen.db
+      - /opt/drohnenprotokoll/data/output:/app/output
+    env_file: /opt/drohnenprotokoll/data/.env
 
-# ─── Deployment auf dem Pi ───────────────────────────────────────────────────
+# ─── Deployment auf dem Pi (via Portainer oder CLI) ──────────────────────────
 #
-# Einmalig:
-#   git clone https://github.com/urswilli/drohnenprotokoll-tool.git
-#   cd drohnenprotokoll-tool
-#   mkdir -p data
-#   cp .env.example .env
-#   nano .env          # SECRET_KEY auf einen langen Zufallswert setzen
-#   docker compose up -d
+# Einmalig vorbereiten:
+#   sudo mkdir -p /opt/drohnenprotokoll/data
+#   python3 -c "import secrets; print(secrets.token_hex(32))"
+#   sudo nano /opt/drohnenprotokoll/data/.env
+#     → SECRET_KEY=<generierter Wert>
 #
-# Update auf neue Version:
+# Via Portainer:
+#   Stacks → Add Stack → Repository
+#   URL: https://github.com/urswilli/drohnenprotokoll-tool
+#   Compose path: docker-compose.yml
+#
+# Via CLI:
+#   docker compose -f docker-compose.yml up -d
+#
+# Update:
 #   docker compose pull && docker compose up -d
+#   (oder in Portainer: Stack → Pull and redeploy)
 #
-# Daten (DB + PDFs) liegen in ./data/ – einfaches Backup via rsync/cp
+# Daten (DB + PDFs) liegen in /opt/drohnenprotokoll/data/ → einfaches Backup
