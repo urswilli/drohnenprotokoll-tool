@@ -10,6 +10,13 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - DATA_DIR=/app/data
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - app
+
 # ─── Deployment via Portainer ─────────────────────────────────────────────────
 #
 # Einmalig auf dem Pi:
@@ -19,6 +26,8 @@ services:
 #   URL: https://github.com/urswilli/drohnenprotokoll-tool
 #   Compose path: docker-compose.yml
 #   → unter "Environment variables" eintragen:
-#       SECRET_KEY  =  <python3 -c "import secrets; print(secrets.token_hex(32))">
+#       SECRET_KEY              = <python3 -c "import secrets; print(secrets.token_hex(32))">
+#       DATA_DIR                = /app/data
+#       CLOUDFLARE_TUNNEL_TOKEN = <token aus Cloudflare Zero Trust Dashboard>
 #
 # Update: Stack → Pull and redeploy
