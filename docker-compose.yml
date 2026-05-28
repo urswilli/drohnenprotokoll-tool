@@ -7,26 +7,22 @@ services:
     volumes:
       - /opt/drohnenprotokoll/data/drohnen.db:/app/drohnen.db
       - /opt/drohnenprotokoll/data/output:/app/output
-    env_file: /opt/drohnenprotokoll/data/.env
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
 
-# ─── Deployment auf dem Pi (via Portainer oder CLI) ──────────────────────────
+# ─── Deployment via Portainer ─────────────────────────────────────────────────
 #
-# Einmalig vorbereiten:
-#   sudo mkdir -p /opt/drohnenprotokoll/data
-#   python3 -c "import secrets; print(secrets.token_hex(32))"
-#   sudo nano /opt/drohnenprotokoll/data/.env
-#     → SECRET_KEY=<generierter Wert>
-#
-# Via Portainer:
-#   Stacks → Add Stack → Repository
+# Stacks → Add Stack → Repository
 #   URL: https://github.com/urswilli/drohnenprotokoll-tool
 #   Compose path: docker-compose.yml
+#   → unter "Environment variables" eintragen:
+#       SECRET_KEY  =  <python3 -c "import secrets; print(secrets.token_hex(32))">
 #
-# Via CLI:
-#   docker compose -f docker-compose.yml up -d
+# ─── Deployment via CLI ───────────────────────────────────────────────────────
+#
+# sudo mkdir -p /opt/drohnenprotokoll/data
+# SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+# docker compose up -d
 #
 # Update:
 #   docker compose pull && docker compose up -d
-#   (oder in Portainer: Stack → Pull and redeploy)
-#
-# Daten (DB + PDFs) liegen in /opt/drohnenprotokoll/data/ → einfaches Backup
