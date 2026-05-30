@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Registrieren – Drohnenprotokoll SRG{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-sm-10 col-md-6 col-lg-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-4">
+        <div class="text-center mb-4">
+          <div class="bg-srg rounded-circle d-inline-flex p-3 mb-2">
+            <i class="bi bi-person-plus text-white fs-3"></i>
+          </div>
+          <h4 class="fw-bold mb-0">Konto erstellen</h4>
+          <p class="text-muted small">Drohnenprotokoll SRG</p>
+        </div>
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Name</label>
+            <input type="text" name="name" class="form-control" placeholder="Max Mustermann" autofocus required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">E-Mail</label>
+            <input type="email" name="email" class="form-control" placeholder="vorname.nachname@srf.ch" required>
+            <div class="form-text">Die E-Mail-Adresse ist gleichzeitig dein Benutzername.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Passwort</label>
+            <input type="password" name="password" class="form-control" minlength="6" required>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Passwort wiederholen</label>
+            <input type="password" name="password_confirm" class="form-control" minlength="6" required>
+          </div>
+          <button type="submit" class="btn btn-srg w-100 fw-semibold">
+            <i class="bi bi-person-plus me-1"></i> Registrieren
+          </button>
+        </form>
+        <div class="text-center mt-3 small">
+          <a href="{{ url_for('login') }}" class="text-decoration-none">Zurück zum Login</a>
+        </div>
+      </div>
+    </div>
+    <p class="text-center text-muted small mt-3">Jede Registrierung muss von einem Administrator freigeschaltet werden.</p>
+  </div>
+</div>
+{% endblock %}

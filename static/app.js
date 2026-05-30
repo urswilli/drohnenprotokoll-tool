@@ -18,6 +18,7 @@ function setField(id, value) {
   if (el && value) {
     el.value = value;
     setAutoFilled(el);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
   }
 }
 
@@ -26,6 +27,7 @@ function setTextarea(id, value) {
   if (el && value) {
     el.value = value;
     setAutoFilled(el);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
   }
 }
 
@@ -132,7 +134,7 @@ function calcMinutes() {
   const [lh, lm] = landInput.value.split(':').map(Number);
   if (isNaN(sh) || isNaN(lh)) return;
   const diff = (lh * 60 + lm) - (sh * 60 + sm);
-  if (diff > 0) { minutesInput.value = diff; setAutoFilled(minutesInput); }
+  if (diff > 0) { minutesInput.value = diff; setAutoFilled(minutesInput); minutesInput.dispatchEvent(new Event('input', { bubbles: true })); }
 }
 
 startInput?.addEventListener('change', calcMinutes);
@@ -147,8 +149,8 @@ const datumPilot = document.getElementById('datum_pilot');
 if (drehdatumInput) {
   drehdatumInput.addEventListener('change', () => {
     const v = drehdatumInput.value;
-    if (datumEva   && !datumEva._manuallyChanged)   datumEva.value   = v;
-    if (datumPilot && !datumPilot._manuallyChanged) datumPilot.value = v;
+    if (datumEva   && !datumEva._manuallyChanged)   { datumEva.value   = v; datumEva.dispatchEvent(new Event('input', { bubbles: true })); }
+    if (datumPilot && !datumPilot._manuallyChanged) { datumPilot.value = v; datumPilot.dispatchEvent(new Event('input', { bubbles: true })); }
   });
   [datumEva, datumPilot].forEach(el => {
     el?.addEventListener('change', () => { el._manuallyChanged = true; });

@@ -15,6 +15,7 @@
   <div class="container-fluid">
     <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
       <i class="bi bi-airplane"></i> Drohnenprotokoll SRG
+      <span class="badge bg-light text-dark fw-normal ms-1 align-middle" style="font-size:.65em;">{{ app_version }}</span>
     </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
       <span class="navbar-toggler-icon"></span>
@@ -26,6 +27,9 @@
         </li>
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('profile') }}"><i class="bi bi-person-circle"></i> Profil</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('feedback') }}"><i class="bi bi-chat-left-text"></i> Feedback</a>
         </li>
         {% if session.is_admin %}
         <li class="nav-item">

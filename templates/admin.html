@@ -65,6 +65,48 @@
     </div>
   </div>
 
+  <!-- Test-Modus -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm {% if test.test_mode %}border-warning border-2{% endif %}">
+      <div class="card-header section-header">
+        <i class="bi bi-cone-striped me-2"></i>Test-Modus
+      </div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="action" value="save_testmode">
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" role="switch" name="test_mode" id="testModeSwitch"
+                   {% if test.test_mode %}checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="testModeSwitch">Test-Modus aktiv</label>
+          </div>
+          <p class="text-muted small">
+            Bei aktivem Test-Modus gehen alle Protokoll-Mails ausschliesslich an die Testadresse
+            (Betreff mit <code>[TEST]</code>), und nur Administratoren können sich anmelden.
+          </p>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Test-Empfängeradresse</label>
+            <input type="email" name="test_email" class="form-control"
+                   value="{{ test.test_email }}" placeholder="test@dronenerds.ch">
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Feedback-Empfängeradresse</label>
+            <input type="email" name="feedback_email" class="form-control"
+                   value="{{ test.feedback_email }}" placeholder="feedback@dronenerds.ch">
+          </div>
+          <button type="submit" class="btn btn-srg w-100 mt-2">
+            <i class="bi bi-floppy me-1"></i>Test-Modus speichern
+          </button>
+        </form>
+        {% if test.test_mode %}
+        <div class="alert alert-warning py-2 mt-3 mb-0">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          Test-Modus ist <strong>aktiv</strong> – normale Nutzer sind ausgesperrt.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
   <!-- Benutzerverwaltung -->
   <div class="col-lg-6">
     <div class="card border-0 shadow-sm">
@@ -72,6 +114,33 @@
         <i class="bi bi-people me-2"></i>Benutzerverwaltung
       </div>
       <div class="card-body">
+        {% if pending %}
+        <div class="alert alert-warning py-2 mb-4">
+          <div class="fw-semibold mb-2"><i class="bi bi-person-exclamation me-1"></i>Offene Registrierungen ({{ pending|length }})</div>
+          {% for p in pending %}
+          <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+            <div>
+              <div class="fw-semibold small">{{ p.pilot_name or '—' }}</div>
+              <div class="text-muted small">{{ p.email or p.username }}</div>
+            </div>
+            <div class="text-nowrap">
+              <form method="post" class="d-inline">
+                <input type="hidden" name="action" value="approve_user">
+                <input type="hidden" name="uid" value="{{ p.id }}">
+                <button class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Freischalten</button>
+              </form>
+              <form method="post" class="d-inline"
+                    onsubmit="return confirm('Registrierung von «{{ p.email or p.username }}» ablehnen und löschen?')">
+                <input type="hidden" name="action" value="reject_user">
+                <input type="hidden" name="uid" value="{{ p.id }}">
+                <button class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
         <!-- Neuen Benutzer anlegen -->
         <h6 class="fw-semibold mb-3">Neuen Benutzer erstellen</h6>
         <form method="post" class="mb-4">

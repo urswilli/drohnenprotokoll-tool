@@ -18,6 +18,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # volle Historie für die Commit-Zählung
+
+      - name: Versionsnummer ermitteln (fortlaufende Commit-Anzahl)
+        id: version
+        run: echo "count=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU (für ARM64 / Pi 5)
         uses: docker/setup-qemu-action@v3
@@ -47,6 +53,8 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.count }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

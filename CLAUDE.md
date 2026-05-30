@@ -60,9 +60,23 @@ Single-file Flask app (`app.py`) — no blueprints, no separate models file. `in
 - `pilot_company_address` → form Section 1 (Drohnenhalter), goes to `Text111`/`Text112` in PDF
 - `pilot_address` → form Section 2 (private pilot address), goes to `Text132` in PDF
 
-**Auth:** Session-based (`flask.session`). `login_required` decorator. Login accepts username or pilot email. Admin flag stored in `users.is_admin`.
+**Auth:** Session-based (`flask.session`). `login_required` decorator. Login accepts username or pilot email. Admin flag stored in `users.is_admin`. Two extra `users` columns (added via `CREATE TABLE` + idempotent `ALTER TABLE`): `email` and `is_approved` (default 1; self-registrations set 0).
+
+**Self-registration & approval:** `GET/POST /register` (public) creates a user with `username=email`, `is_approved=0`, plus a matching `profiles` row. Unapproved users are blocked at login. Admin approves via the "Offene Registrierungen" list in `admin.html` (actions `approve_user` → sets `is_approved=1` + sends notification mail; `reject_user` → deletes user + profile).
+
+**Password reset:** `GET/POST /forgot-password` → looks up user by email, sends a link to `/reset-password/<token>`. Tokens are stateless via `itsdangerous.URLSafeTimedSerializer` (`_reset_serializer`, salt `pw-reset`, `max_age=3600`, signed with `SECRET_KEY`). The forgot-password response is always neutral (no account-existence leak).
+
+**Test mode:** Settings `test_mode` (`'true'`/`'false'`), `test_email`, `feedback_email`, managed in the admin "Test-Modus" card (action `save_testmode`). Helper `test_mode_on()`. When on: (1) login is blocked for non-admins and `login.html` shows a banner (`test_mode` template var passed to login/register/forgot/reset views); (2) `send_email()` redirects all protocol mail to `test_email` only (no Cc, `[TEST]` subject prefix).
+
+**Feedback:** `GET/POST /feedback` (`login_required`) — sender prefilled from `profiles.pilot_email` (fallback session username), sends via `send_simple_email()` to `feedback_email`. Navbar link in `base.html`.
+
+**Versioning:** Displayed as `Beta 0.X` in the navbar (`base.html`) and on the login footer, X = running commit count. `_get_version()` reads env `APP_VERSION` (the count, injected at Docker build time by GitHub Actions via `build-args`), falling back to `git rev-list --count HEAD` for local dev. Exposed to all templates as `app_version` via an `@app.context_processor`. The workflow uses `fetch-depth: 0` so the full history is available for counting.
+
+**Generic mail helper:** `send_simple_email(to, subject, body)` — plain-text mail using the same SMTP settings as `send_email()`; used by feedback, password reset, and approval notifications.
 
 **Frontend:** Bootstrap 5.3 + Bootstrap Icons via CDN. `static/style.css` defines brand colours (`--srg-red: #c8102e`) and `.field-empty` (orange border, yellow background) for real-time empty-field highlighting. `static/app.js` handles GPS/weather fetch, drone dropdown autofill, flight-minutes calculation, and Drehdatum→Datum sync. Per-template JS lives in `{% block scripts %}`.
+
+**Empty-field highlighting:** `initEmptyHighlight()` in `form.html` toggles `.field-empty` on `input`/`change`/`blur`. Because programmatic `.value =` assignments don't fire those events, every autofill path must dispatch a synthetic `input` event so the highlight clears: `setField`/`setTextarea` and the Drehdatum/flight-minutes sync in `app.js`, and the `setVal(el, v)` helper used by the drone dropdown, Sendeformat, flight-minutes and EVA-signature sync in `form.html`.
 
 ## Key Conventions
 

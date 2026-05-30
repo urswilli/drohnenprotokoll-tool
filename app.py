@@ -13,12 +13,16 @@ from email.mime.application import MIMEApplication
 from flask import (Flask, render_template, request, redirect, url_for,
                    session, jsonify, send_file, flash)
 from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 def _hash(pw): return generate_password_hash(pw, method='pbkdf2:sha256')
 from pypdf import PdfReader, PdfWriter
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'drohnen-protokoll-srg-2024-secret')
+
+# Serializer für zeitlich begrenzte Passwort-Reset-Tokens (nutzt SECRET_KEY)
+_reset_serializer = URLSafeTimedSerializer(app.secret_key, salt='pw-reset')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PDF_PATH = os.path.join(BASE_DIR, 'SRG_Weisung und Checkliste für den Einsatz von Drohnen_V500e.pdf')
@@ -30,6 +34,30 @@ DB_PATH    = os.path.join(DATA_DIR, 'drohnen.db')
 OUTPUT_DIR = os.path.join(DATA_DIR, 'output')
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+def _get_version():
+    """Versionsstring 'Beta 0.X', wobei X die fortlaufende Commit-Anzahl ist.
+    Im Docker-Image kommt die Zahl aus der Umgebungsvariable APP_VERSION
+    (beim Build von GitHub Actions gesetzt); lokal wird sie aus Git ermittelt."""
+    n = os.environ.get('APP_VERSION', '').strip()
+    if not n:
+        try:
+            import subprocess
+            n = subprocess.check_output(
+                ['git', 'rev-list', '--count', 'HEAD'],
+                cwd=BASE_DIR, stderr=subprocess.DEVNULL).decode().strip()
+        except Exception:
+            n = ''
+    return f'Beta 0.{n}' if n else 'Beta 0.x'
+
+
+APP_VERSION = _get_version()
+
+
+@app.context_processor
+def inject_version():
+    return {'app_version': APP_VERSION}
 
 WEATHER_CODES = {
     0: 'Klarer Himmel', 1: 'Überwiegend klar', 2: 'Teilweise bewölkt', 3: 'Bedeckt',
@@ -90,7 +118,9 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
-                is_admin INTEGER DEFAULT 0
+                is_admin INTEGER DEFAULT 0,
+                email TEXT DEFAULT '',
+                is_approved INTEGER DEFAULT 1
             );
             CREATE TABLE IF NOT EXISTS profiles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,6 +171,14 @@ def init_db():
             conn.execute("ALTER TABLE profiles ADD COLUMN pilot_company_address TEXT DEFAULT ''")
         except Exception:
             pass
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN is_approved INTEGER DEFAULT 1")
+        except Exception:
+            pass
         if conn.execute('SELECT COUNT(*) FROM sendeformate').fetchone()[0] == 0:
             conn.executemany('INSERT OR IGNORE INTO sendeformate(name) VALUES(?)',
                              [(s,) for s in SENDEFORMATE])
@@ -160,6 +198,38 @@ def set_setting(key, value):
     with get_db() as conn:
         conn.execute('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)', (key, value))
         conn.commit()
+
+
+def test_mode_on():
+    return get_setting('test_mode', 'false') == 'true'
+
+
+def send_simple_email(to_addr, subject, body):
+    """Verschickt eine einfache Text-Mail über die konfigurierten SMTP-Settings.
+    Wird für Feedback und Passwort-Reset genutzt. Gibt (bool, str) zurück."""
+    smtp_host = get_setting('smtp_host')
+    smtp_port = int(get_setting('smtp_port', '587'))
+    smtp_user = get_setting('smtp_user')
+    smtp_pass = get_setting('smtp_pass')
+    smtp_from = get_setting('smtp_from') or smtp_user
+    if not smtp_host:
+        return False, 'SMTP nicht konfiguriert'
+
+    msg = MIMEMultipart()
+    msg['From'] = smtp_from
+    msg['To'] = to_addr
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            if smtp_user and smtp_pass:
+                server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_from, [to_addr], msg.as_string())
+        return True, 'E-Mail erfolgreich gesendet'
+    except Exception as e:
+        return False, str(e)
 
 
 def login_required(f):
@@ -323,10 +393,21 @@ def send_email(form_data, pdf_path, filename):
         f"digitales Formular V500e"
     )
 
+    # Test-Modus: alle Mails nur an die Testadresse, kein Cc, [TEST]-Präfix
+    if test_mode_on():
+        test_addr = get_setting('test_email', 'test@dronenerds.ch')
+        to_header = test_addr
+        cc_list = []
+        recipients = [test_addr]
+        subject = f"[TEST] {subject}"
+    else:
+        to_header = 'drohnen@srf.ch; eng-service@srf.ch'
+        cc_list = [e for e in [eva_email, pilot_email] if e]
+        recipients = ['drohnen@srf.ch', 'eng-service@srf.ch'] + cc_list
+
     msg = MIMEMultipart()
     msg['From'] = smtp_from
-    msg['To'] = 'drohnen@srf.ch; eng-service@srf.ch'
-    cc_list = [e for e in [eva_email, pilot_email] if e]
+    msg['To'] = to_header
     if cc_list:
         msg['Cc'] = '; '.join(cc_list)
     msg['Subject'] = subject
@@ -338,7 +419,6 @@ def send_email(form_data, pdf_path, filename):
         msg.attach(attachment)
 
     try:
-        recipients = ['drohnen@srf.ch', 'eng-service@srf.ch'] + cc_list
         with smtplib.SMTP(smtp_host, smtp_port) as server:
             server.ehlo()
             server.starttls()
@@ -363,18 +443,140 @@ def login():
                 'WHERE u.username=? OR p.pilot_email=?',
                 (username, username)).fetchone()
         if user and check_password_hash(user['password_hash'], password):
+            if not user['is_approved']:
+                flash('Dein Konto wurde noch nicht freigeschaltet. Bitte warte auf die Bestätigung durch einen Administrator.', 'warning')
+                return render_template('login.html', test_mode=test_mode_on())
+            if test_mode_on() and not user['is_admin']:
+                flash('Testmodus aktiv – Login zurzeit nur für Administratoren möglich.', 'warning')
+                return render_template('login.html', test_mode=test_mode_on())
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['is_admin'] = bool(user['is_admin'])
             return redirect(url_for('index'))
         flash('Ungültiger Benutzername oder Passwort.', 'danger')
-    return render_template('login.html')
+    return render_template('login.html', test_mode=test_mode_on())
 
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name     = request.form.get('name', '').strip()
+        email    = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        confirm  = request.form.get('password_confirm', '')
+
+        if not name or not email or '@' not in email:
+            flash('Bitte Name und eine gültige E-Mail-Adresse angeben.', 'danger')
+        elif len(password) < 6:
+            flash('Das Passwort muss mindestens 6 Zeichen lang sein.', 'danger')
+        elif password != confirm:
+            flash('Die Passwörter stimmen nicht überein.', 'danger')
+        else:
+            try:
+                with get_db() as conn:
+                    cur = conn.execute(
+                        'INSERT INTO users(username,password_hash,is_admin,email,is_approved) '
+                        'VALUES(?,?,0,?,0)',
+                        (email, _hash(password), email))
+                    new_id = cur.lastrowid
+                    conn.execute(
+                        'INSERT INTO profiles(user_id,pilot_name,pilot_email) VALUES(?,?,?)',
+                        (new_id, name, email))
+                    conn.commit()
+                flash('Registrierung eingegangen – ein Administrator schaltet dein Konto frei. '
+                      'Du wirst per E-Mail benachrichtigt, sobald du dich anmelden kannst.', 'success')
+                return redirect(url_for('login'))
+            except sqlite3.IntegrityError:
+                flash('Diese E-Mail-Adresse ist bereits registriert.', 'danger')
+    return render_template('register.html', test_mode=test_mode_on())
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        with get_db() as conn:
+            user = conn.execute(
+                'SELECT u.* FROM users u LEFT JOIN profiles p ON u.id = p.user_id '
+                'WHERE u.username=? OR u.email=? OR p.pilot_email=?',
+                (email, email, email)).fetchone()
+        if user:
+            token = _reset_serializer.dumps(user['id'])
+            link = url_for('reset_password', token=token, _external=True)
+            body = (
+                f"Hallo\n\n"
+                f"Es wurde ein Zurücksetzen deines Passworts für das Drohnenprotokoll-Tool angefordert.\n"
+                f"Über den folgenden Link kannst du innerhalb von 60 Minuten ein neues Passwort setzen:\n\n"
+                f"{link}\n\n"
+                f"Falls du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren.\n"
+            )
+            send_simple_email(email, 'Passwort zurücksetzen – Drohnenprotokoll', body)
+        # Immer dieselbe neutrale Antwort (kein Leak, ob E-Mail existiert)
+        flash('Falls ein Konto mit dieser E-Mail existiert, wurde ein Link zum Zurücksetzen verschickt.', 'info')
+        return redirect(url_for('login'))
+    return render_template('forgot_password.html', test_mode=test_mode_on())
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try:
+        user_id = _reset_serializer.loads(token, max_age=3600)
+    except SignatureExpired:
+        flash('Der Link ist abgelaufen. Bitte fordere einen neuen an.', 'danger')
+        return redirect(url_for('forgot_password'))
+    except BadSignature:
+        flash('Ungültiger Link.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        confirm  = request.form.get('password_confirm', '')
+        if len(password) < 6:
+            flash('Das Passwort muss mindestens 6 Zeichen lang sein.', 'danger')
+        elif password != confirm:
+            flash('Die Passwörter stimmen nicht überein.', 'danger')
+        else:
+            with get_db() as conn:
+                conn.execute('UPDATE users SET password_hash=? WHERE id=?',
+                             (_hash(password), user_id))
+                conn.commit()
+            flash('Passwort erfolgreich geändert. Du kannst dich jetzt anmelden.', 'success')
+            return redirect(url_for('login'))
+    return render_template('reset_password.html', token=token, test_mode=test_mode_on())
+
+
+@app.route('/feedback', methods=['GET', 'POST'])
+@login_required
+def feedback():
+    with get_db() as conn:
+        profile = conn.execute('SELECT pilot_email FROM profiles WHERE user_id=?',
+                               (session['user_id'],)).fetchone()
+    sender = (profile['pilot_email'] if profile and profile['pilot_email']
+              else session.get('username', ''))
+
+    if request.method == 'POST':
+        subject = request.form.get('subject', '').strip()
+        text    = request.form.get('text', '').strip()
+        if not subject or not text:
+            flash('Bitte Betreff und Text ausfüllen.', 'danger')
+        else:
+            body = f"Feedback von: {sender}\n\nBetreff: {subject}\n\n{text}\n"
+            ok, msg = send_simple_email(
+                get_setting('feedback_email', 'feedback@dronenerds.ch'),
+                f"Feedback: {subject}", body)
+            if ok:
+                flash('Vielen Dank für dein Feedback. Falls die Idee nicht kompletter '
+                      'Mumpitz ist, wird sie innert nützlicher Frist implementiert.', 'success')
+                return redirect(url_for('index'))
+            else:
+                flash(f'Feedback konnte nicht gesendet werden: {msg}', 'danger')
+    return render_template('feedback.html', sender=sender)
 
 
 @app.route('/')
@@ -598,6 +800,12 @@ def admin():
                 set_setting(key, request.form.get(key, ''))
             flash('SMTP-Einstellungen gespeichert.', 'success')
 
+        elif action == 'save_testmode':
+            set_setting('test_mode', 'true' if request.form.get('test_mode') else 'false')
+            set_setting('test_email', request.form.get('test_email', '').strip() or 'test@dronenerds.ch')
+            set_setting('feedback_email', request.form.get('feedback_email', '').strip() or 'feedback@dronenerds.ch')
+            flash('Test-Modus-Einstellungen gespeichert.', 'success')
+
         elif action == 'create_user':
             username = request.form.get('new_username', '').strip()
             password = request.form.get('new_password', '')
@@ -605,14 +813,36 @@ def admin():
             if username and len(password) >= 6:
                 try:
                     with get_db() as conn:
-                        conn.execute('INSERT INTO users(username,password_hash,is_admin) VALUES(?,?,?)',
-                                     (username, _hash(password), is_admin))
+                        conn.execute('INSERT INTO users(username,password_hash,is_admin,email,is_approved) VALUES(?,?,?,?,1)',
+                                     (username, _hash(password), is_admin, username))
                         conn.commit()
                     flash(f'Benutzer {username!r} erstellt.', 'success')
                 except sqlite3.IntegrityError:
                     flash('Benutzername bereits vergeben.', 'danger')
             else:
                 flash('Benutzername und Passwort (min. 6 Zeichen) erforderlich.', 'danger')
+
+        elif action == 'approve_user':
+            uid = request.form.get('uid')
+            with get_db() as conn:
+                conn.execute('UPDATE users SET is_approved=1 WHERE id=?', (uid,))
+                row = conn.execute('SELECT username, email FROM users WHERE id=?', (uid,)).fetchone()
+                conn.commit()
+            if row:
+                addr = row['email'] or row['username']
+                send_simple_email(
+                    addr, 'Konto freigeschaltet – Drohnenprotokoll',
+                    'Hallo\n\nDein Konto für das Drohnenprotokoll-Tool wurde freigeschaltet. '
+                    'Du kannst dich ab sofort anmelden.\n')
+            flash('Benutzer freigeschaltet.', 'success')
+
+        elif action == 'reject_user':
+            uid = request.form.get('uid')
+            with get_db() as conn:
+                conn.execute('DELETE FROM profiles WHERE user_id=?', (uid,))
+                conn.execute('DELETE FROM users WHERE id=?', (uid,))
+                conn.commit()
+            flash('Registrierung abgelehnt und gelöscht.', 'success')
 
         elif action == 'delete_user':
             uid = request.form.get('uid')
@@ -726,12 +956,23 @@ def admin():
         return redirect(url_for('admin'))
 
     with get_db() as conn:
-        users = conn.execute('SELECT id,username,is_admin FROM users').fetchall()
+        users = conn.execute(
+            'SELECT id,username,is_admin,email,is_approved FROM users WHERE is_approved=1').fetchall()
+        pending = conn.execute(
+            'SELECT u.id, u.username, u.email, p.pilot_name '
+            'FROM users u LEFT JOIN profiles p ON u.id = p.user_id '
+            'WHERE u.is_approved=0').fetchall()
         drones = conn.execute('SELECT * FROM drones ORDER BY name').fetchall()
         sendeformate = conn.execute('SELECT * FROM sendeformate ORDER BY id').fetchall()
         verwendungszwecke = conn.execute('SELECT * FROM verwendungszwecke ORDER BY id').fetchall()
     smtp_settings = {k: get_setting(k) for k in ['smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from']}
-    return render_template('admin.html', users=users, smtp=smtp_settings, drones=drones,
+    test_settings = {
+        'test_mode': test_mode_on(),
+        'test_email': get_setting('test_email', 'test@dronenerds.ch'),
+        'feedback_email': get_setting('feedback_email', 'feedback@dronenerds.ch'),
+    }
+    return render_template('admin.html', users=users, pending=pending, smtp=smtp_settings,
+                           test=test_settings, drones=drones,
                            sendeformate=sendeformate, verwendungszwecke=verwendungszwecke)
 
 

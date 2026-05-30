@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Feedback – Drohnenprotokoll SRG{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-4">
+        <h4 class="fw-bold mb-1"><i class="bi bi-chat-left-text text-srg me-1"></i> Feedback</h4>
+        <p class="text-muted small mb-4">Hast du eine Idee, einen Fehler entdeckt oder einen Wunsch? Lass es uns wissen.</p>
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Absender</label>
+            <input type="email" name="sender" class="form-control" value="{{ sender }}" readonly>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Betreff</label>
+            <input type="text" name="subject" class="form-control" placeholder="Kurze Zusammenfassung" autofocus required>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Dein Feedback</label>
+            <textarea name="text" class="form-control" rows="6" placeholder="Beschreibe deine Idee oder dein Anliegen …" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-srg fw-semibold">
+            <i class="bi bi-send me-1"></i> Feedback senden
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

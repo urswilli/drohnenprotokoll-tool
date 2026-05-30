@@ -461,18 +461,26 @@
 
 {% block scripts %}
 <script>
+// Hilfsfunktion: Wert programmatisch setzen UND Highlight-Listener (input) auslösen,
+// damit die orange Markierung leerer Felder auch bei Datensatz-Befüllung verschwindet.
+function setVal(el, v) {
+  if (!el) return;
+  el.value = v;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 // Auto-fill drone fields from central dropdown
 document.getElementById('droneSelect')?.addEventListener('change', function() {
   const opt = this.options[this.selectedIndex];
-  document.getElementById('droneBrand').value        = opt.dataset.name         || '';
-  document.getElementById('droneType').value         = opt.dataset.typ          || '';
-  document.getElementById('droneSeriennummer').value = opt.dataset.seriennummer || '';
-  document.getElementById('droneReg').value          = opt.dataset.reg_nr       || '';
+  setVal(document.getElementById('droneBrand'),        opt.dataset.name         || '');
+  setVal(document.getElementById('droneType'),         opt.dataset.typ          || '');
+  setVal(document.getElementById('droneSeriennummer'), opt.dataset.seriennummer || '');
+  setVal(document.getElementById('droneReg'),          opt.dataset.reg_nr       || '');
 });
 
 // Auto-fill sendeformat from dropdown
 document.getElementById('sendeformatSelect')?.addEventListener('change', function() {
-  if (this.value) document.getElementById('sendeformat').value = this.value;
+  if (this.value) setVal(document.getElementById('sendeformat'), this.value);
 });
 
 // Auto-calculate flight minutes
@@ -483,7 +491,7 @@ function calcFlugminuten() {
     const [sh,sm] = start.split(':').map(Number);
     const [lh,lm] = land.split(':').map(Number);
     const mins = (lh*60+lm) - (sh*60+sm);
-    if (mins > 0) document.getElementById('flugminuten').value = mins;
+    if (mins > 0) setVal(document.getElementById('flugminuten'), mins);
   }
 }
 document.getElementById('startzeit')?.addEventListener('change', calcFlugminuten);
@@ -495,8 +503,8 @@ function syncEva() {
   const email = document.getElementById('evaEmail')?.value || '';
   const sigName  = document.getElementById('evaSignatureName');
   const sigEmail = document.getElementById('evaSignatureEmail');
-  if (sigName  && !sigName.dataset.manuallyEdited)  sigName.value  = name;
-  if (sigEmail && !sigEmail.dataset.manuallyEdited) sigEmail.value = email;
+  if (sigName  && !sigName.dataset.manuallyEdited)  setVal(sigName,  name);
+  if (sigEmail && !sigEmail.dataset.manuallyEdited) setVal(sigEmail, email);
 }
 ['evaSignatureName','evaSignatureEmail'].forEach(id => {
   document.getElementById(id)?.addEventListener('input', function() {

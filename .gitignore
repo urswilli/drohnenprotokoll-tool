@@ -15,3 +15,6 @@ venv/
 # Docker
 docker-compose.override.yml
 data/
+
+# macOS
+.DS_Store

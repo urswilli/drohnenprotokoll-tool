@@ -4,6 +4,15 @@
 {% block content %}
 <div class="row justify-content-center mt-5">
   <div class="col-sm-10 col-md-6 col-lg-4">
+    {% if test_mode %}
+    <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+      <i class="bi bi-cone-striped fs-4 me-2"></i>
+      <div>
+        <strong>Testmodus aktiv</strong><br>
+        <span class="small">Das Tool ist zurzeit für normale Nutzer nicht erreichbar.</span>
+      </div>
+    </div>
+    {% endif %}
     <div class="card shadow-sm border-0">
       <div class="card-body p-4">
         <div class="text-center mb-4">
@@ -26,9 +35,13 @@
             <i class="bi bi-box-arrow-in-right me-1"></i> Anmelden
           </button>
         </form>
+        <div class="d-flex justify-content-between mt-3 small">
+          <a href="{{ url_for('register') }}" class="text-decoration-none">Konto erstellen</a>
+          <a href="{{ url_for('forgot_password') }}" class="text-decoration-none">Passwort vergessen?</a>
+        </div>
       </div>
     </div>
-    <p class="text-center text-muted small mt-3">V500e – Weisung und Checkliste für den Einsatz von Drohnen</p>
+    <p class="text-center text-muted small mt-3">V500e – Weisung und Checkliste für den Einsatz von Drohnen<br><span class="opacity-75">{{ app_version }}</span></p>
   </div>
 </div>
 {% endblock %}
