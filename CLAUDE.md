@@ -10,7 +10,12 @@ python3 app.py          # starts on http://localhost:5050 with debug=True
 
 The SQLite database and `output/` folder are created automatically on first run in the same directory as `app.py`. Default admin credentials are printed to the console on first launch (`admin` / `drohnen2024`).
 
-Dependencies: `flask`, `pypdf`, `werkzeug`, `gunicorn` (see `requirements.txt`)
+Dependencies: `flask`, `pypdf`, `werkzeug`, `gunicorn` (see `requirements.txt`). `itsdangerous` is imported directly (password-reset tokens) but ships transitively with Flask, so it is not pinned separately.
+
+There is no build step, linter, or test suite. To smoke-test against a throwaway DB (so the real `drohnen.db` is never touched), point `DATA_DIR` at a temp dir and drive `app.test_client()`:
+```bash
+DATA_DIR=$(mktemp -d) python3 -c "import app; c=app.app.test_client(); print(c.get('/login').status_code)"
+```
 
 ## Docker / Production Deployment
 
@@ -25,8 +30,11 @@ sudo mkdir -p /opt/drohnenprotokoll/data
 Then deploy via Portainer (Stacks → Add Stack → Repository) with environment variables:
 - `SECRET_KEY` = output of `python3 -c "import secrets; print(secrets.token_hex(32))"`
 - `DATA_DIR` = `/app/data`
+- `CLOUDFLARE_TUNNEL_TOKEN` = token from the Cloudflare Zero Trust dashboard (only if the `cloudflared` service is used)
 
 **Update:** Portainer → Stack → Pull and redeploy
+
+**Public access (Cloudflare Tunnel):** `docker-compose.yml` includes a `cloudflared` service that exposes the app publicly (e.g. `srf.dronenerds.ch`) with no open router ports. The public hostname is configured in the Cloudflare Zero Trust dashboard pointing at `http://app:5050`. cloudflared needs **outbound port 7844** (TCP + UDP) — there is no flag that moves it to 443; `--protocol http2` still dials 7844. Known gotcha: Sunrise's **"Surf Protect"** ISP filter silently blocks 7844 (verify with `nc -zv -w5 region1.v2.argotunnel.com 7844` from any host on the LAN — a timeout means it's blocked). Disable Surf Protect in the Sunrise customer portal; the UDR7 firewall/IPS was never the cause.
 
 **Migrating existing DB to Pi:**
 ```bash
