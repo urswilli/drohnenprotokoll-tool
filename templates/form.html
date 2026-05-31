@@ -507,8 +507,10 @@ function syncEva() {
   if (sigEmail && !sigEmail.dataset.manuallyEdited) setVal(sigEmail, email);
 }
 ['evaSignatureName','evaSignatureEmail'].forEach(id => {
-  document.getElementById(id)?.addEventListener('input', function() {
-    this.dataset.manuallyEdited = 'true';
+  document.getElementById(id)?.addEventListener('input', function(e) {
+    // Nur echte Nutzereingaben sperren die Auto-Übernahme – synthetische
+    // input-Events aus setVal()/syncEva() haben isTrusted === false.
+    if (e.isTrusted) this.dataset.manuallyEdited = 'true';
   });
 });
 document.getElementById('evaName')?.addEventListener('input', syncEva);
