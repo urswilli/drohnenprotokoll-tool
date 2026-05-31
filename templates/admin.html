@@ -88,11 +88,6 @@
             <input type="email" name="test_email" class="form-control"
                    value="{{ test.test_email }}" placeholder="test@dronenerds.ch">
           </div>
-          <div class="mb-2">
-            <label class="form-label fw-semibold">Feedback-Empfängeradresse</label>
-            <input type="email" name="feedback_email" class="form-control"
-                   value="{{ test.feedback_email }}" placeholder="feedback@dronenerds.ch">
-          </div>
           <button type="submit" class="btn btn-srg w-100 mt-2">
             <i class="bi bi-floppy me-1"></i>Test-Modus speichern
           </button>
@@ -103,6 +98,35 @@
           Test-Modus ist <strong>aktiv</strong> – normale Nutzer sind ausgesperrt.
         </div>
         {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- E-Mail-Benachrichtigungen -->
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header section-header">
+        <i class="bi bi-bell me-2"></i>E-Mail-Benachrichtigungen
+      </div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="action" value="save_notifications">
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Feedback-Empfängeradresse</label>
+            <input type="email" name="feedback_email" class="form-control"
+                   value="{{ notify.feedback_email }}" placeholder="feedback@dronenerds.ch">
+            <div class="form-text">Empfänger für Nachrichten aus der Feedback-Funktion.</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Admin-/Registrierungsadresse</label>
+            <input type="email" name="admin_email" class="form-control"
+                   value="{{ notify.admin_email }}" placeholder="info@dronenerds.ch">
+            <div class="form-text">Erhält bei jeder neuen Registrierung eine Mail mit Direkt-Freischalt-Link.</div>
+          </div>
+          <button type="submit" class="btn btn-srg w-100 mt-2">
+            <i class="bi bi-floppy me-1"></i>Benachrichtigungen speichern
+          </button>
+        </form>
       </div>
     </div>
   </div>

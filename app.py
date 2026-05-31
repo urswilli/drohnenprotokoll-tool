@@ -23,6 +23,8 @@ app.secret_key = os.environ.get('SECRET_KEY', 'drohnen-protokoll-srg-2024-secret
 
 # Serializer für zeitlich begrenzte Passwort-Reset-Tokens (nutzt SECRET_KEY)
 _reset_serializer = URLSafeTimedSerializer(app.secret_key, salt='pw-reset')
+# Serializer für Direkt-Freischalt-Links in der Admin-Benachrichtigungsmail
+_approve_serializer = URLSafeTimedSerializer(app.secret_key, salt='user-approve')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PDF_PATH = os.path.join(BASE_DIR, 'SRG_Weisung und Checkliste für den Einsatz von Drohnen_V500e.pdf')
@@ -399,7 +401,10 @@ def send_email(form_data, pdf_path, filename):
     smtp_port = int(get_setting('smtp_port', '587'))
     smtp_user = get_setting('smtp_user')
     smtp_pass = get_setting('smtp_pass')
-    smtp_from = form_data.get('pilot_email', '') or get_setting('smtp_from') or smtp_user
+    # Absender MUSS zur SMTP-Domain passen, sonst lehnt der Mailserver wegen
+    # SPF ab (z.B. "550 SPF check failed ... not allowed to send from srf.ch").
+    # Daher NICHT die Pilot-Adresse als From verwenden – diese kommt in Reply-To.
+    smtp_from = get_setting('smtp_from') or smtp_user
 
     if not smtp_host:
         return False, 'SMTP nicht konfiguriert'
@@ -452,6 +457,10 @@ def send_email(form_data, pdf_path, filename):
     msg['To'] = to_header
     if cc_list:
         msg['Cc'] = '; '.join(cc_list)
+    # Antworten sollen beim Piloten (bzw. EVA) landen, nicht beim noreply-Absender
+    reply_to = pilot_email or eva_email
+    if reply_to:
+        msg['Reply-To'] = reply_to
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
@@ -531,6 +540,34 @@ def register():
                         'INSERT INTO profiles(user_id,pilot_name,pilot_email) VALUES(?,?,?)',
                         (new_id, name, email))
                     conn.commit()
+
+                # Bestätigungsmail an den Nutzer (best-effort)
+                try:
+                    send_simple_email(
+                        email, 'Registrierung erhalten – Drohnenprotokoll',
+                        f'Hallo {name}\n\n'
+                        'Vielen Dank für deine Registrierung beim Drohnenprotokoll-Tool. '
+                        'Aus Sicherheitsgründen wird dein Konto manuell geprüft und freigeschaltet. '
+                        'Sobald das erledigt ist, erhältst du eine weitere E-Mail und kannst dich anmelden.\n\n'
+                        'Happy flying!\nUrs\n')
+                except Exception:
+                    pass
+
+                # Benachrichtigung an den Admin mit Direkt-Freischalt-Link (best-effort)
+                try:
+                    token = _approve_serializer.dumps(new_id)
+                    link = url_for('approve_via_link', token=token, _external=True)
+                    send_simple_email(
+                        get_setting('admin_email', 'info@dronenerds.ch'),
+                        f'Neue Registrierung: {email}',
+                        f'Eine neue Registrierung ist eingegangen:\n\n'
+                        f'Name:   {name}\n'
+                        f'E-Mail: {email}\n\n'
+                        f'Direkt freischalten (Link 7 Tage gültig):\n{link}\n\n'
+                        f'Alternativ im Admin-Bereich unter "Offene Registrierungen".\n')
+                except Exception:
+                    pass
+
                 flash('Registrierung eingegangen – ein Administrator schaltet dein Konto frei. '
                       'Du wirst per E-Mail benachrichtigt, sobald du dich anmelden kannst.', 'success')
                 return redirect(url_for('login'))
@@ -591,6 +628,47 @@ def reset_password(token):
             flash('Passwort erfolgreich geändert. Du kannst dich jetzt anmelden.', 'success')
             return redirect(url_for('login'))
     return render_template('reset_password.html', token=token, test_mode=test_mode_on())
+
+
+def _notify_user_approved(addr):
+    """Schickt dem Nutzer die Freischalt-Benachrichtigung (best-effort)."""
+    if not addr:
+        return
+    try:
+        send_simple_email(
+            addr, 'Konto freigeschaltet – Drohnenprotokoll',
+            'Hallo\n\nDein Konto für das Drohnenprotokoll-Tool wurde freigeschaltet. '
+            'Du kannst dich ab sofort anmelden.\n\nHappy flying!\nUrs\n')
+    except Exception:
+        pass
+
+
+@app.route('/approve-user/<token>')
+def approve_via_link(token):
+    try:
+        uid = _approve_serializer.loads(token, max_age=7 * 24 * 3600)
+    except SignatureExpired:
+        flash('Der Freischalt-Link ist abgelaufen. Bitte schalte den Nutzer im Admin-Bereich frei.', 'danger')
+        return redirect(url_for('login'))
+    except BadSignature:
+        flash('Ungültiger Freischalt-Link.', 'danger')
+        return redirect(url_for('login'))
+
+    with get_db() as conn:
+        user = conn.execute('SELECT id, username, email, is_approved FROM users WHERE id=?', (uid,)).fetchone()
+        if not user:
+            flash('Benutzer nicht gefunden (evtl. bereits gelöscht).', 'warning')
+            return redirect(url_for('login'))
+        addr = user['email'] or user['username']
+        if user['is_approved']:
+            flash(f'Benutzer {addr} ist bereits freigeschaltet.', 'info')
+            return redirect(url_for('admin') if session.get('is_admin') else url_for('login'))
+        conn.execute('UPDATE users SET is_approved=1 WHERE id=?', (uid,))
+        conn.commit()
+
+    _notify_user_approved(addr)
+    flash(f'Benutzer {addr} wurde freigeschaltet.', 'success')
+    return redirect(url_for('admin') if session.get('is_admin') else url_for('login'))
 
 
 @app.route('/feedback', methods=['GET', 'POST'])
@@ -845,8 +923,12 @@ def admin():
         elif action == 'save_testmode':
             set_setting('test_mode', 'true' if request.form.get('test_mode') else 'false')
             set_setting('test_email', request.form.get('test_email', '').strip() or 'test@dronenerds.ch')
-            set_setting('feedback_email', request.form.get('feedback_email', '').strip() or 'feedback@dronenerds.ch')
             flash('Test-Modus-Einstellungen gespeichert.', 'success')
+
+        elif action == 'save_notifications':
+            set_setting('feedback_email', request.form.get('feedback_email', '').strip() or 'feedback@dronenerds.ch')
+            set_setting('admin_email', request.form.get('admin_email', '').strip() or 'info@dronenerds.ch')
+            flash('Benachrichtigungs-Einstellungen gespeichert.', 'success')
 
         elif action == 'create_user':
             username = request.form.get('new_username', '').strip()
@@ -871,11 +953,7 @@ def admin():
                 row = conn.execute('SELECT username, email FROM users WHERE id=?', (uid,)).fetchone()
                 conn.commit()
             if row:
-                addr = row['email'] or row['username']
-                send_simple_email(
-                    addr, 'Konto freigeschaltet – Drohnenprotokoll',
-                    'Hallo\n\nDein Konto für das Drohnenprotokoll-Tool wurde freigeschaltet. '
-                    'Du kannst dich ab sofort anmelden.\n')
+                _notify_user_approved(row['email'] or row['username'])
             flash('Benutzer freigeschaltet.', 'success')
 
         elif action == 'reject_user':
@@ -1011,10 +1089,13 @@ def admin():
     test_settings = {
         'test_mode': test_mode_on(),
         'test_email': get_setting('test_email', 'test@dronenerds.ch'),
+    }
+    notify_settings = {
         'feedback_email': get_setting('feedback_email', 'feedback@dronenerds.ch'),
+        'admin_email': get_setting('admin_email', 'info@dronenerds.ch'),
     }
     return render_template('admin.html', users=users, pending=pending, smtp=smtp_settings,
-                           test=test_settings, drones=drones,
+                           test=test_settings, notify=notify_settings, drones=drones,
                            sendeformate=sendeformate, verwendungszwecke=verwendungszwecke)
 
 
