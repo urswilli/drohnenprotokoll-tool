@@ -1,0 +1,19 @@
+# Git-Historie nicht ins Image kopieren – Version/Changelog kommen
+# über APP_VERSION bzw. changelog.json (im CI erzeugt). changelog.json
+# wird bewusst NICHT ignoriert, damit es ins Image gelangt.
+.git
+.gitignore
+.github
+
+# Laufzeit-/Build-Artefakte
+output/
+pdf_images/
+__pycache__/
+*.pyc
+*.pyo
+*.db
+.env
+venv/
+
+# macOS
+.DS_Store

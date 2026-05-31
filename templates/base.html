@@ -15,8 +15,12 @@
   <div class="container-fluid">
     <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
       <i class="bi bi-airplane"></i> Drohnenprotokoll SRG
-      <span class="badge bg-light text-dark fw-normal ms-1 align-middle" style="font-size:.65em;">{{ app_version }}</span>
     </a>
+    <button type="button"
+            class="badge bg-light text-dark fw-normal border-0 ms-1 align-middle"
+            style="font-size:.65em; cursor:pointer;"
+            data-bs-toggle="modal" data-bs-target="#changelogModal"
+            title="Changelog anzeigen">{{ app_version }}</button>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
       <span class="navbar-toggler-icon"></span>
     </button>
@@ -58,6 +62,35 @@
   {% endwith %}
 
   {% block content %}{% endblock %}
+</div>
+
+<!-- Changelog-Modal (Trigger: Versions-Badge in der Navbar) -->
+<div class="modal fade" id="changelogModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-srg text-white">
+        <h5 class="modal-title"><i class="bi bi-card-list me-2"></i>Changelog <span class="opacity-75 fw-normal ms-1">{{ app_version }}</span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+      </div>
+      <div class="modal-body">
+        {% if changelog %}
+        <ul class="list-group list-group-flush">
+          {% for e in changelog %}
+          <li class="list-group-item px-0">
+            <div class="d-flex justify-content-between align-items-baseline">
+              <span class="fw-bold">Beta 0.{{ e.version }}</span>
+              <span class="text-muted small">{{ e.date }}</span>
+            </div>
+            <div class="small">{{ e.subject }}</div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0">Keine Changelog-Einträge verfügbar.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

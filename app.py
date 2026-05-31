@@ -52,12 +52,54 @@ def _get_version():
     return f'Beta 0.{n}' if n else 'Beta 0.x'
 
 
+def _get_changelog():
+    """Liste der Changelog-Einträge {version, hash, subject, date}, neueste zuerst.
+    Version = fortlaufende Commit-Position (ältester Commit = 1, neuester = APP_VERSION).
+
+    Priorität:
+    1. changelog.json in BASE_DIR (beim Docker-Build von GitHub Actions gebacken)
+    2. Live-`git log` (lokale Entwicklung)
+    3. leere Liste"""
+    path = os.path.join(BASE_DIR, 'changelog.json')
+    if os.path.exists(path):
+        try:
+            with open(path, encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    try:
+        import subprocess
+        out = subprocess.check_output(
+            ['git', 'log', '--no-merges', '--reverse',
+             '--pretty=format:%h\x1f%s\x1f%cI'],
+            cwd=BASE_DIR, stderr=subprocess.DEVNULL).decode('utf-8')
+        entries = []
+        for i, line in enumerate(out.splitlines()):
+            if not line.strip():
+                continue
+            parts = line.split('\x1f')
+            if len(parts) != 3:
+                continue
+            h, subject, iso = parts
+            entries.append({
+                'version': i + 1,
+                'hash': h,
+                'subject': subject,
+                'date': iso[:10],
+            })
+        entries.reverse()  # neueste zuerst
+        return entries
+    except Exception:
+        return []
+
+
 APP_VERSION = _get_version()
+CHANGELOG = _get_changelog()
 
 
 @app.context_processor
 def inject_version():
-    return {'app_version': APP_VERSION}
+    return {'app_version': APP_VERSION, 'changelog': CHANGELOG}
 
 WEATHER_CODES = {
     0: 'Klarer Himmel', 1: 'Überwiegend klar', 2: 'Teilweise bewölkt', 3: 'Bedeckt',

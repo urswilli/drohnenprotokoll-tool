@@ -25,6 +25,29 @@ jobs:
         id: version
         run: echo "count=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Changelog aus Git-Historie erzeugen (changelog.json)
+        run: |
+          python3 - <<'PY'
+          import subprocess, json
+          out = subprocess.check_output(
+              ['git', 'log', '--no-merges', '--reverse',
+               '--pretty=format:%h\x1f%s\x1f%cI']).decode('utf-8')
+          entries = []
+          for i, line in enumerate(out.splitlines()):
+              if not line.strip():
+                  continue
+              parts = line.split('\x1f')
+              if len(parts) != 3:
+                  continue
+              h, subject, iso = parts
+              entries.append({'version': i + 1, 'hash': h,
+                              'subject': subject, 'date': iso[:10]})
+          entries.reverse()  # neueste zuerst
+          with open('changelog.json', 'w', encoding='utf-8') as f:
+              json.dump(entries, f, ensure_ascii=False, indent=2)
+          print(f'changelog.json mit {len(entries)} Einträgen geschrieben')
+          PY
+
       - name: Set up QEMU (für ARM64 / Pi 5)
         uses: docker/setup-qemu-action@v3
 
