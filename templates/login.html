@@ -2,28 +2,8 @@
 {% block title %}Login – Drohnenprotokoll SRG{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center align-items-center mt-5 g-4">
-  <div class="col-sm-10 col-md-8 col-lg-6 order-2 order-lg-1">
-    <div class="card shadow-sm border-0">
-      <div class="card-body p-4">
-        <div class="d-flex align-items-center mb-3">
-          <div class="bg-srg rounded-circle d-inline-flex p-2 me-2">
-            <i class="bi bi-emoji-smile text-white fs-5"></i>
-          </div>
-          <h5 class="fw-bold mb-0">Willkommen</h5>
-        </div>
-        <p>Lieber Drohnenpilot</p>
-        <p>Mit diesem Tool kannst du etwas einfacher mit dem ursprünglichen PDF-Formular das SRG-Drohnenprotokoll erstellen.</p>
-        <p>Nachdem du dich registriert hast, muss ich aus Sicherheitsgründen dein Login manuell aktivieren. Ich versuche das jeweils so schnell wie möglich zu erledigen.</p>
-        <p>Wenn du es direkt nach dem Flug ausfüllst, hast du die Möglichkeit, Standort und Wetterdaten automatisch generieren zu lassen. Klicke dazu einfach im Formular oben rechts auf den Button «Standort &amp; Wetter ermitteln». Nachdem du alle Felder ausgefüllt hast, wird per Button «PDF erstellen &amp; senden» das gleiche E-Mail und PDF generiert, als würdest du das Drohnenprotokoll im ursprünglichen PDF nutzen.</p>
-        <p>Falls du Verbesserungsvorschläge hast, kannst du mir diese gerne mit der entsprechenden Feedback-Funktion im Menü mitteilen.</p>
-        <p class="mb-1">Happy flying!</p>
-        <p class="mb-0">Urs</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-sm-10 col-md-8 col-lg-5 order-1 order-lg-2">
+<div class="row justify-content-center mt-5 g-4">
+  <div class="col-sm-10 col-md-8 col-lg-6">
     {% if test_mode %}
     <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
       <i class="bi bi-cone-striped fs-4 me-2"></i>
@@ -61,6 +41,25 @@
         </div>
       </div>
     </div>
+
+    <div class="card shadow-sm border-0 mt-4">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center mb-3">
+          <div class="bg-srg rounded-circle d-inline-flex p-2 me-2">
+            <i class="bi bi-emoji-smile text-white fs-5"></i>
+          </div>
+          <h5 class="fw-bold mb-0">Willkommen</h5>
+        </div>
+        <p>Lieber Drohnenpilot</p>
+        <p>Mit diesem Tool kannst du etwas einfacher mit dem ursprünglichen PDF-Formular das SRG-Drohnenprotokoll erstellen.</p>
+        <p>Nachdem du dich registriert hast, muss ich aus Sicherheitsgründen dein Login manuell aktivieren. Ich versuche das jeweils so schnell wie möglich zu erledigen.</p>
+        <p>Wenn du es direkt nach dem Flug ausfüllst, hast du die Möglichkeit, Standort und Wetterdaten automatisch generieren zu lassen. Klicke dazu einfach im Formular oben rechts auf den Button «Standort &amp; Wetter ermitteln». Nachdem du alle Felder ausgefüllt hast, wird per Button «PDF erstellen &amp; senden» das gleiche E-Mail und PDF generiert, als würdest du das Drohnenprotokoll im ursprünglichen PDF nutzen.</p>
+        <p>Falls du Verbesserungsvorschläge hast, kannst du mir diese gerne mit der entsprechenden Feedback-Funktion im Menü mitteilen.</p>
+        <p class="mb-1">Happy flying!</p>
+        <p class="mb-0">Urs</p>
+      </div>
+    </div>
+
     <p class="text-center text-muted small mt-3">V500e – Weisung und Checkliste für den Einsatz von Drohnen<br><span class="opacity-75">{{ app_version }}</span></p>
   </div>
 </div>
