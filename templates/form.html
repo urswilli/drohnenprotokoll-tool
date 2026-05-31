@@ -409,12 +409,12 @@
                  value="{{ today.replace('/','-') }}">
         </div>
         <div class="mb-0">
-          <label class="form-label fw-semibold">Name / E-Mail Drohnenpilot</label>
-          <input type="text" name="pilot_signature" class="form-control"
-                 value="{{ profile.pilot_name if profile else '' }}"
-                 placeholder="Vorname Nachname oder E-Mail">
+          <label class="form-label fw-semibold">E-Mail Drohnenpilot</label>
+          <input type="email" name="pilot_signature_email" class="form-control"
+                 value="{{ profile.pilot_email if profile else '' }}"
+                 placeholder="vorname.nachname@srf.ch">
           <div class="form-text">
-            Aus Profil. Bei elektronischem Versand reicht die E-Mailadresse.
+            Aus Profil. Bei elektronischem Versand erscheint die E-Mailadresse auf der Unterschriftslinie.
           </div>
         </div>
       </div>

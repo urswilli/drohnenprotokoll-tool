@@ -348,13 +348,15 @@ def fill_pdf(form_data):
         'Text204': form_data.get('anzahl_fluege', ''),
         'Text211': form_data.get('besondere_ereignisse', 'Keine besonderen Vorkommnisse'),
 
-        # Signature section
+        # Signature section (§4) – pro Block: Signaturlinie + Zeile darunter
         'Info.35': form_data.get('ort_eva', ''),
         'Info.36': form_data.get('datum_eva', today),
         'Info.37': form_data.get('ort_pilot', ''),
         'Info.38': form_data.get('datum_pilot', today),
+        # EVA-Block: E-Mail auf der Linie (Text13), Vorname/Nachname darunter (Info.33)
         'Text13':  form_data.get('eva_signature_email', '') or form_data.get('eva_email', ''),
-        'Text15':  form_data.get('pilot_signature', '') or form_data.get('pilot_email', ''),
+        # Pilot-Block: NUR die E-Mail auf der Linie (Text15), Vorname/Nachname darunter (Info.34)
+        'Text15':  form_data.get('pilot_email', ''),
 
         # Clear large instruction text fields
         'Info.01': '',
@@ -369,7 +371,8 @@ def fill_pdf(form_data):
         'Info.20': '',
         'Info.31': '',
         'Info.32': '',                                # grüner Hinweistext oberhalb Ort/Datum – hide
-        'Info.33': form_data.get('eva_name', ''),     # "Vorname, Nachname" unter E-Mail (EVA)
+        # "Vorname, Nachname" unter der E-Mail-Signaturlinie (EVA: §4-Feld, Fallback Abschnitt 3)
+        'Info.33': form_data.get('eva_signature', '') or form_data.get('eva_name', ''),
         'Info.34': form_data.get('pilot_name', ''),   # "Vorname, Nachname" unter E-Mail (Pilot)
 
         # JA confirmation

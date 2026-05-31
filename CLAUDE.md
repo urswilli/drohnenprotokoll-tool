@@ -55,7 +55,7 @@ Single-file Flask app (`app.py`) — no blueprints, no separate models file. `in
 **PDF generation:** `fill_pdf(form_data)` uses `pypdf` to clone `SRG_Weisung und Checkliste für den Einsatz von Drohnen_V500e.pdf` and write form field values. Critical field mapping (confirmed by PDF coordinate analysis):
 - `Text12x` = EVA section: `Text121`=eva_name, `Text122`=redaktion, `Text123`=srg_ue
 - `Text13x` = Pilot section: `Text131`=pilot_name, `Text132`=pilot_address
-- `Info.33`/`Info.34` = Vorname/Nachname under email in signature block (kept visible)
+- §4 signature lines: `Text13` = EVA email line, `Info.33` = EVA Vorname/Nachname below it (source: §4 field `eva_signature`, fallback `eva_name`); `Text15` = Pilot **email** line (never the name), `Info.34` = Pilot Vorname/Nachname below it
 - `Info.32` = green instructional text above Ort/Datum (cleared to `''`)
 - `Info.35`/`Info.37` = Ort EVA/Pilot; `Info.36`/`Info.38` = Datum EVA/Pilot
 - Drohnenhalter: `Text111`=drone_holder_company, `Text112`=drone_holder_address (fallback to SRF hardcoded values)
