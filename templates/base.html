@@ -77,11 +77,26 @@
         <ul class="list-group list-group-flush">
           {% for e in changelog %}
           <li class="list-group-item px-0">
-            <div class="d-flex justify-content-between align-items-baseline">
-              <span class="fw-bold">Beta 0.{{ e.version }}</span>
-              <span class="text-muted small">{{ e.date }}</span>
+            <div class="d-flex align-items-baseline gap-2 flex-wrap">
+              <span class="fw-bold small">Beta 0.{{ e.version }}</span>
+              {% if e.type %}
+              <span class="badge rounded-pill
+                {% if e.type == 'feat' %}bg-success
+                {% elif e.type == 'fix' %}bg-danger
+                {% elif e.type == 'style' %}bg-info text-dark
+                {% elif e.type in ('docs', 'chore') %}bg-secondary
+                {% else %}bg-warning text-dark{% endif %}">{{ e.type }}</span>
+              {% endif %}
+              <span class="text-muted small ms-auto">{{ e.date }}</span>
             </div>
-            <div class="small">{{ e.subject }}</div>
+            <div class="small mt-1">{{ e.subject }}</div>
+            {% if e.author or e.hash %}
+            <div class="text-muted mt-1" style="font-size:.75em">
+              {% if e.author %}<i class="bi bi-person-fill me-1"></i>{{ e.author }}{% endif %}
+              {% if e.author and e.hash %}&nbsp;·&nbsp;{% endif %}
+              {% if e.hash %}<code class="text-muted">{{ e.hash }}</code>{% endif %}
+            </div>
+            {% endif %}
           </li>
           {% endfor %}
         </ul>

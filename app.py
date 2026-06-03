@@ -55,13 +55,43 @@ def _get_version():
 
 
 def _get_changelog():
-    """Liste der Changelog-Einträge {version, hash, subject, date}, neueste zuerst.
+    """Liste der Changelog-Einträge {version, hash, author, subject, type, date}, neueste zuerst.
     Version = fortlaufende Commit-Position (ältester Commit = 1, neuester = APP_VERSION).
 
     Priorität:
     1. changelog.json in BASE_DIR (beim Docker-Build von GitHub Actions gebacken)
     2. Live-`git log` (lokale Entwicklung)
     3. leere Liste"""
+    COMMIT_TYPES = {'feat', 'fix', 'style', 'docs', 'refactor', 'chore', 'perf', 'ci', 'build', 'test'}
+
+    def _parse(raw):
+        entries = []
+        n = 0
+        for line in raw.splitlines():
+            if not line.strip():
+                continue
+            parts = line.split('\x1f')
+            if len(parts) != 4:
+                continue
+            h, author, subject, iso = parts
+            n += 1
+            commit_type = ''
+            if ':' in subject:
+                prefix = subject.split(':')[0].strip().lower()
+                if prefix in COMMIT_TYPES:
+                    commit_type = prefix
+                    subject = subject[len(prefix) + 1:].strip()
+            entries.append({
+                'version': n,
+                'hash': h,
+                'author': author,
+                'subject': subject,
+                'type': commit_type,
+                'date': iso[:10],
+            })
+        entries.reverse()
+        return entries
+
     path = os.path.join(BASE_DIR, 'changelog.json')
     if os.path.exists(path):
         try:
@@ -73,24 +103,9 @@ def _get_changelog():
         import subprocess
         out = subprocess.check_output(
             ['git', 'log', '--no-merges', '--reverse',
-             '--pretty=format:%h\x1f%s\x1f%cI'],
+             '--pretty=format:%h\x1f%an\x1f%s\x1f%cI'],
             cwd=BASE_DIR, stderr=subprocess.DEVNULL).decode('utf-8')
-        entries = []
-        for i, line in enumerate(out.splitlines()):
-            if not line.strip():
-                continue
-            parts = line.split('\x1f')
-            if len(parts) != 3:
-                continue
-            h, subject, iso = parts
-            entries.append({
-                'version': i + 1,
-                'hash': h,
-                'subject': subject,
-                'date': iso[:10],
-            })
-        entries.reverse()  # neueste zuerst
-        return entries
+        return _parse(out)
     except Exception:
         return []
 
@@ -206,6 +221,21 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE
             );
+            CREATE TABLE IF NOT EXISTS drone_holders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                name TEXT NOT NULL,
+                address TEXT DEFAULT '',
+                is_default INTEGER DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS aircraft_holder_map (
+                aircraft_id INTEGER NOT NULL,
+                holder_id   INTEGER NOT NULL,
+                PRIMARY KEY (aircraft_id, holder_id),
+                FOREIGN KEY (aircraft_id) REFERENCES aircraft(id),
+                FOREIGN KEY (holder_id)   REFERENCES drone_holders(id)
+            );
         ''')
         try:
             conn.execute("ALTER TABLE drones ADD COLUMN reg_nr TEXT DEFAULT ''")
@@ -229,6 +259,17 @@ def init_db():
         if conn.execute('SELECT COUNT(*) FROM verwendungszwecke').fetchone()[0] == 0:
             conn.executemany('INSERT OR IGNORE INTO verwendungszwecke(name) VALUES(?)',
                              [(v,) for v in VERWENDUNGSZWECKE])
+        # SRG-Systemhalter (nicht löschbar, user_id=NULL)
+        conn.execute("""INSERT OR IGNORE INTO drone_holders(id, user_id, name, address)
+            VALUES(1, NULL, 'Schweizer Radio und Fernsehen (SRF)', 'Fernsehstrasse 1-4\n8052 Zürich')""")
+        # Migration: bestehende pilot_company → drone_holders (einmalig, idempotent)
+        conn.execute("""
+            INSERT OR IGNORE INTO drone_holders(user_id, name, address)
+            SELECT p.user_id, p.pilot_company, COALESCE(p.pilot_company_address, '')
+            FROM profiles p
+            WHERE p.pilot_company != ''
+              AND NOT EXISTS (SELECT 1 FROM drone_holders d WHERE d.user_id = p.user_id)
+        """)
         conn.commit()
 
 
@@ -705,13 +746,21 @@ def feedback():
 @app.route('/')
 @login_required
 def index():
+    user_id = session['user_id']
     with get_db() as conn:
-        profile = conn.execute('SELECT * FROM profiles WHERE user_id=?',
-                               (session['user_id'],)).fetchone()
+        profile = conn.execute('SELECT * FROM profiles WHERE user_id=?', (user_id,)).fetchone()
         aircraft_list = conn.execute(
             'SELECT * FROM aircraft WHERE user_id=? ORDER BY is_default DESC, name',
-            (session['user_id'],)).fetchall()
-    with get_db() as conn:
+            (user_id,)).fetchall()
+        drone_holders = conn.execute(
+            'SELECT * FROM drone_holders WHERE user_id=? OR user_id IS NULL '
+            'ORDER BY user_id IS NOT NULL, name',
+            (user_id,)).fetchall()
+        aircraft_holder_ids = {}
+        for row in conn.execute(
+            'SELECT ahm.aircraft_id, ahm.holder_id FROM aircraft_holder_map ahm '
+            'JOIN aircraft a ON a.id = ahm.aircraft_id WHERE a.user_id=?', (user_id,)):
+            aircraft_holder_ids.setdefault(row['aircraft_id'], []).append(row['holder_id'])
         drones = conn.execute('SELECT * FROM drones ORDER BY name').fetchall()
         sendeformate = [r['name'] for r in conn.execute('SELECT name FROM sendeformate ORDER BY id').fetchall()]
         verwendungszwecke = [r['name'] for r in conn.execute('SELECT name FROM verwendungszwecke ORDER BY id').fetchall()]
@@ -719,6 +768,8 @@ def index():
     return render_template('form.html',
                            profile=profile,
                            aircraft_list=aircraft_list,
+                           drone_holders=drone_holders,
+                           aircraft_holder_ids=aircraft_holder_ids,
                            drones=drones,
                            today=today,
                            checklist=CHECKLIST_ITEMS,
@@ -829,54 +880,115 @@ def profile():
             action = request.form.get('action')
 
             if action == 'save_profile':
-                conn.execute('''INSERT INTO profiles(user_id,pilot_name,pilot_email,pilot_company,pilot_address,pilot_company_address)
-                    VALUES(?,?,?,?,?,?)
+                conn.execute('''INSERT INTO profiles(user_id, pilot_name, pilot_email, pilot_address)
+                    VALUES(?,?,?,?)
                     ON CONFLICT(user_id) DO UPDATE SET
                     pilot_name=excluded.pilot_name,
                     pilot_email=excluded.pilot_email,
-                    pilot_company=excluded.pilot_company,
-                    pilot_address=excluded.pilot_address,
-                    pilot_company_address=excluded.pilot_company_address''',
+                    pilot_address=excluded.pilot_address''',
                     (user_id,
-                     request.form.get('pilot_name',''),
-                     request.form.get('pilot_email',''),
-                     request.form.get('pilot_company',''),
-                     request.form.get('pilot_address',''),
-                     request.form.get('pilot_company_address','')))
+                     request.form.get('pilot_name', ''),
+                     request.form.get('pilot_email', ''),
+                     request.form.get('pilot_address', '')))
                 conn.commit()
                 flash('Profil gespeichert.', 'success')
+
+            elif action == 'add_holder':
+                name = request.form.get('holder_name', '').strip()
+                addr = request.form.get('holder_address', '').strip()
+                is_default = 1 if request.form.get('holder_default') else 0
+                if name:
+                    if is_default:
+                        conn.execute('UPDATE drone_holders SET is_default=0 WHERE user_id=?', (user_id,))
+                    conn.execute(
+                        'INSERT INTO drone_holders(user_id, name, address, is_default) VALUES(?,?,?,?)',
+                        (user_id, name, addr, is_default))
+                    conn.commit()
+                    flash('Drohnenhalter hinzugefügt.', 'success')
+                else:
+                    flash('Name des Drohnenhalters ist erforderlich.', 'danger')
+
+            elif action == 'edit_holder':
+                hid = request.form.get('holder_id')
+                name = request.form.get('holder_name', '').strip()
+                addr = request.form.get('holder_address', '').strip()
+                if name and hid:
+                    conn.execute(
+                        'UPDATE drone_holders SET name=?, address=? WHERE id=? AND user_id=?',
+                        (name, addr, hid, user_id))
+                    conn.commit()
+                    flash('Drohnenhalter aktualisiert.', 'success')
+                else:
+                    flash('Name des Drohnenhalters ist erforderlich.', 'danger')
+
+            elif action == 'delete_holder':
+                hid = request.form.get('holder_id')
+                if hid and str(hid) != '1':
+                    conn.execute('DELETE FROM aircraft_holder_map WHERE holder_id=?', (hid,))
+                    conn.execute('DELETE FROM drone_holders WHERE id=? AND user_id=?', (hid, user_id))
+                    conn.commit()
+                    flash('Drohnenhalter gelöscht.', 'success')
+
+            elif action == 'set_default_holder':
+                hid = request.form.get('holder_id')
+                if hid:
+                    conn.execute('UPDATE drone_holders SET is_default=0 WHERE user_id=?', (user_id,))
+                    conn.execute('UPDATE drone_holders SET is_default=1 WHERE id=? AND user_id=?',
+                                 (hid, user_id))
+                    conn.commit()
 
             elif action == 'add_aircraft':
                 is_default = 1 if request.form.get('ac_default') else 0
                 if is_default:
                     conn.execute('UPDATE aircraft SET is_default=0 WHERE user_id=?', (user_id,))
-                conn.execute('''INSERT INTO aircraft(user_id,name,brand,type_serial,registration,equipment,is_default)
-                    VALUES(?,?,?,?,?,?,?)''',
+                cur = conn.execute(
+                    'INSERT INTO aircraft(user_id,name,brand,type_serial,registration,equipment,is_default) '
+                    'VALUES(?,?,?,?,?,?,?)',
                     (user_id,
-                     request.form.get('ac_name',''),
-                     request.form.get('ac_brand',''),
-                     request.form.get('ac_type',''),
-                     request.form.get('ac_reg',''),
-                     request.form.get('ac_equip',''),
+                     request.form.get('ac_name', ''),
+                     request.form.get('ac_brand', ''),
+                     request.form.get('ac_type', ''),
+                     request.form.get('ac_reg', ''),
+                     request.form.get('ac_equip', ''),
                      is_default))
+                new_ac_id = cur.lastrowid
+                holder_ids = request.form.getlist('holder_ids[]') or ['1']
+                for hid in holder_ids:
+                    try:
+                        conn.execute(
+                            'INSERT OR IGNORE INTO aircraft_holder_map(aircraft_id, holder_id) VALUES(?,?)',
+                            (new_ac_id, int(hid)))
+                    except (ValueError, Exception):
+                        pass
                 conn.commit()
                 flash('Drohne hinzugefügt.', 'success')
 
             elif action == 'edit_aircraft':
                 ac_id = request.form.get('ac_id')
-                conn.execute('''UPDATE aircraft SET name=?, brand=?, type_serial=?, registration=?, equipment=?
-                                WHERE id=? AND user_id=?''',
+                conn.execute(
+                    'UPDATE aircraft SET name=?, brand=?, type_serial=?, registration=?, equipment=? '
+                    'WHERE id=? AND user_id=?',
                     (request.form.get('ac_name', ''),
                      request.form.get('ac_brand', ''),
                      request.form.get('ac_type', ''),
                      request.form.get('ac_reg', ''),
                      request.form.get('ac_equip', ''),
                      ac_id, user_id))
+                holder_ids = request.form.getlist('holder_ids[]') or ['1']
+                conn.execute('DELETE FROM aircraft_holder_map WHERE aircraft_id=?', (ac_id,))
+                for hid in holder_ids:
+                    try:
+                        conn.execute(
+                            'INSERT OR IGNORE INTO aircraft_holder_map(aircraft_id, holder_id) VALUES(?,?)',
+                            (ac_id, int(hid)))
+                    except (ValueError, Exception):
+                        pass
                 conn.commit()
                 flash('Drohne aktualisiert.', 'success')
 
             elif action == 'delete_aircraft':
                 ac_id = request.form.get('ac_id')
+                conn.execute('DELETE FROM aircraft_holder_map WHERE aircraft_id=?', (ac_id,))
                 conn.execute('DELETE FROM aircraft WHERE id=? AND user_id=?', (ac_id, user_id))
                 conn.commit()
                 flash('Drohne gelöscht.', 'success')
@@ -905,8 +1017,18 @@ def profile():
         aircraft_list = conn.execute(
             'SELECT * FROM aircraft WHERE user_id=? ORDER BY is_default DESC, name',
             (user_id,)).fetchall()
+        drone_holders = conn.execute(
+            'SELECT * FROM drone_holders WHERE user_id=? OR user_id IS NULL '
+            'ORDER BY user_id IS NOT NULL, name',
+            (user_id,)).fetchall()
+        aircraft_holder_ids = {}
+        for row in conn.execute(
+            'SELECT ahm.aircraft_id, ahm.holder_id FROM aircraft_holder_map ahm '
+            'JOIN aircraft a ON a.id = ahm.aircraft_id WHERE a.user_id=?', (user_id,)):
+            aircraft_holder_ids.setdefault(row['aircraft_id'], []).append(row['holder_id'])
 
-    return render_template('profile.html', profile=profile_data, aircraft_list=aircraft_list)
+    return render_template('profile.html', profile=profile_data, aircraft_list=aircraft_list,
+                           drone_holders=drone_holders, aircraft_holder_ids=aircraft_holder_ids)
 
 
 @app.route('/admin', methods=['GET', 'POST'])
