@@ -47,7 +47,7 @@ def _get_version():
         try:
             import subprocess
             n = subprocess.check_output(
-                ['git', 'rev-list', '--count', 'HEAD'],
+                ['git', 'rev-list', '--count', '--no-merges', 'HEAD'],
                 cwd=BASE_DIR, stderr=subprocess.DEVNULL).decode().strip()
         except Exception:
             n = ''

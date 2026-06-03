@@ -23,7 +23,7 @@ jobs:
 
       - name: Versionsnummer ermitteln (fortlaufende Commit-Anzahl)
         id: version
-        run: echo "count=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+        run: echo "count=$(git rev-list --count --no-merges HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Changelog aus Git-Historie erzeugen (changelog.json)
         run: |
