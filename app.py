@@ -85,6 +85,9 @@ def _get_changelog():
             h = parts[0].strip()
             subject = parts[1].strip()
             body = parts[2].strip() if len(parts) > 2 else ''
+            body_lines = [l for l in body.splitlines()
+                          if not l.strip().lower().startswith('co-authored-by:')]
+            body = '\n'.join(body_lines).strip()
             n += 1
             commit_type = ''
             if ':' in subject:
@@ -833,6 +836,11 @@ def submit():
     for i in range(1, 18):
         if f'cb_{i}' not in form_data:
             form_data[f'cb_{i}'] = 'off'
+    # SRF-Systemhalter: Pflichtempfänger erzwingen (disabled Checkboxen fehlen im POST-Body)
+    if 'Schweizer Radio und Fernsehen' in form_data.get('drone_holder_company', ''):
+        form_data['rcpt_eng_service'] = 'on'
+        form_data['rcpt_drohnen']     = 'on'
+        form_data['rcpt_cc_eva']      = 'on'
     for key in ('rcpt_eng_service', 'rcpt_drohnen', 'rcpt_cc_eva', 'rcpt_cc_pilot'):
         if key not in form_data:
             form_data[key] = 'off'

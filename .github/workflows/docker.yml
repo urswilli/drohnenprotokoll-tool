@@ -50,6 +50,9 @@ jobs:
               h = parts[0].strip()
               subject = parts[1].strip()
               body = parts[2].strip() if len(parts) > 2 else ''
+              body_lines = [l for l in body.splitlines()
+                            if not l.strip().lower().startswith('co-authored-by:')]
+              body = '\n'.join(body_lines).strip()
               n += 1
               commit_type = ''
               if ':' in subject:

@@ -548,6 +548,13 @@ function updateHolder() {
   document.getElementById('holderCompanyHidden').value  = company;
   document.getElementById('holderAddressHidden').value  = address;
   filterDrones(hid);
+  const isSRF = (String(hid) === '1');
+  ['rcptEngService', 'rcptDrohnen', 'rcptCcEva'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = isSRF;
+    if (isSRF) el.checked = true;
+  });
 }
 
 function filterDrones(hid) {
