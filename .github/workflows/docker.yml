@@ -29,19 +29,28 @@ jobs:
         run: |
           python3 - <<'PY'
           import subprocess, json
+          COMMIT_TYPES = {'feat', 'fix', 'style', 'docs', 'refactor', 'chore', 'perf', 'ci', 'build', 'test'}
           out = subprocess.check_output(
               ['git', 'log', '--no-merges', '--reverse',
-               '--pretty=format:%h\x1f%s\x1f%cI']).decode('utf-8')
+               '--pretty=format:%h\x1f%an\x1f%s\x1f%cI']).decode('utf-8')
           entries = []
-          for i, line in enumerate(out.splitlines()):
+          n = 0
+          for line in out.splitlines():
               if not line.strip():
                   continue
               parts = line.split('\x1f')
-              if len(parts) != 3:
+              if len(parts) != 4:
                   continue
-              h, subject, iso = parts
-              entries.append({'version': i + 1, 'hash': h,
-                              'subject': subject, 'date': iso[:10]})
+              h, author, subject, iso = parts
+              n += 1
+              commit_type = ''
+              if ':' in subject:
+                  prefix = subject.split(':')[0].strip().lower()
+                  if prefix in COMMIT_TYPES:
+                      commit_type = prefix
+                      subject = subject[len(prefix) + 1:].strip()
+              entries.append({'version': n, 'hash': h, 'author': author,
+                              'subject': subject, 'type': commit_type, 'date': iso[:10]})
           entries.reverse()  # neueste zuerst
           with open('changelog.json', 'w', encoding='utf-8') as f:
               json.dump(entries, f, ensure_ascii=False, indent=2)

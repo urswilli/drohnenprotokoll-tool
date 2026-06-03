@@ -137,8 +137,25 @@ function calcMinutes() {
   if (diff > 0) { minutesInput.value = diff; setAutoFilled(minutesInput); minutesInput.dispatchEvent(new Event('input', { bubbles: true })); }
 }
 
-startInput?.addEventListener('change', calcMinutes);
+function calcLandingTime() {
+  if (!startInput || !minutesInput || !landInput) return;
+  const [sh, sm] = startInput.value.split(':').map(Number);
+  const mins = parseInt(minutesInput.value, 10);
+  if (isNaN(sh) || isNaN(mins) || mins <= 0) return;
+  const total = sh * 60 + sm + mins;
+  const lh = Math.floor(total / 60) % 24;
+  const lm = total % 60;
+  landInput.value = String(lh).padStart(2, '0') + ':' + String(lm).padStart(2, '0');
+  setAutoFilled(landInput);
+  landInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+startInput?.addEventListener('change', () => {
+  if (landInput?.value) calcMinutes();
+  else if (minutesInput?.value) calcLandingTime();
+});
 landInput?.addEventListener('change', calcMinutes);
+minutesInput?.addEventListener('change', calcLandingTime);
 
 // ── Drehdatum → Datum-Felder in Abschnitt 4 synchronisieren ──────────────
 

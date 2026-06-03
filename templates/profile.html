@@ -4,13 +4,12 @@
 {% block content %}
 <h4 class="fw-bold mb-4"><i class="bi bi-person-circle me-2 text-srg"></i>Mein Profil</h4>
 
-<div class="row g-4">
-
-  <!-- Pilotendaten -->
+<!-- ═══════════════════════ 1. PILOTENANGABEN ════════════════════════════ -->
+<div class="row g-4 mb-4">
   <div class="col-lg-6">
     <div class="card border-0 shadow-sm h-100">
       <div class="card-header section-header">
-        <i class="bi bi-person-badge me-2"></i>Pilotendaten
+        <i class="bi bi-person-badge me-2"></i>Pilotenangaben
       </div>
       <div class="card-body">
         <form method="post">
@@ -27,19 +26,6 @@
                    value="{{ profile.pilot_email if profile else '' }}"
                    placeholder="max.mustermann@tpcag.ch">
           </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Firma / Arbeitgeber</label>
-            <input type="text" name="pilot_company" class="form-control"
-                   value="{{ profile.pilot_company if profile else '' }}"
-                   placeholder="z.B. TPC AG oder SRF">
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Firmenadresse</label>
-            <input type="text" name="pilot_company_address" class="form-control"
-                   value="{{ profile.pilot_company_address if profile else '' }}"
-                   placeholder="z.B. Fernsehstrasse 1-4, 8052 Zürich">
-            <div class="form-text">Wird im Hauptformular als Adresse des Drohnenhalters eingesetzt.</div>
-          </div>
           <div class="mb-4">
             <label class="form-label fw-semibold">Privatadresse</label>
             <input type="text" name="pilot_address" class="form-control"
@@ -55,9 +41,9 @@
     </div>
   </div>
 
-  <!-- Passwort ändern -->
+  <!-- Passwort -->
   <div class="col-lg-6">
-    <div class="card border-0 shadow-sm mb-4">
+    <div class="card border-0 shadow-sm h-100">
       <div class="card-header section-header">
         <i class="bi bi-lock me-2"></i>Passwort ändern
       </div>
@@ -68,7 +54,7 @@
             <label class="form-label fw-semibold">Aktuelles Passwort</label>
             <input type="password" name="old_password" class="form-control" required>
           </div>
-          <div class="mb-3">
+          <div class="mb-4">
             <label class="form-label fw-semibold">Neues Passwort <span class="text-muted">(min. 6 Zeichen)</span></label>
             <input type="password" name="new_password" class="form-control" minlength="6" required>
           </div>
@@ -78,130 +64,286 @@
         </form>
       </div>
     </div>
-
   </div>
 </div>
 
-<!-- Drohnenflotte – volle Breite, analog Admin -->
-<div class="row g-4 mt-0">
-  <div class="col-12">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header section-header">
-        <i class="bi bi-send me-2"></i>Meine Drohnen
-      </div>
-      <div class="card-body">
-        <div class="row g-4">
+<!-- ═══════════════════════ 2. DROHNENHALTER ════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header section-header">
+    <i class="bi bi-building me-2"></i>Drohnenhalter
+  </div>
+  <div class="card-body">
+    <div class="row g-4">
 
-          <!-- Neue Drohne erfassen -->
-          <div class="col-lg-4">
-            <h6 class="fw-semibold mb-3">Neue Drohne erfassen</h6>
-            <form method="post">
-              <input type="hidden" name="action" value="add_aircraft">
-              <div class="mb-2">
-                <label class="form-label fw-semibold small mb-1">Bezeichnung / Name *</label>
-                <input type="text" name="ac_name" class="form-control form-control-sm"
-                       placeholder="z.B. DJI Mavic 3" required>
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold small mb-1">Marke</label>
-                <input type="text" name="ac_brand" class="form-control form-control-sm"
-                       placeholder="z.B. DJI">
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold small mb-1">Typ / Seriennummer</label>
-                <input type="text" name="ac_type" class="form-control form-control-sm"
-                       placeholder="z.B. Multirotor / SN-12345">
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold small mb-1">Reg.-Nr. (eID)</label>
-                <input type="text" name="ac_reg" class="form-control form-control-sm"
-                       placeholder="z.B. CHE-XXXX">
-              </div>
-              <div class="mb-3">
-                <label class="form-label fw-semibold small mb-1">Spez. Ausstattung</label>
-                <input type="text" name="ac_equip" class="form-control form-control-sm"
-                       placeholder="z.B. Wärmebildkamera">
-              </div>
-              <div class="mb-3">
-                <div class="form-check">
-                  <input type="checkbox" class="form-check-input" name="ac_default" id="acDefault">
-                  <label class="form-check-label small" for="acDefault">Als Standard verwenden</label>
-                </div>
-              </div>
-              <button type="submit" class="btn btn-srg btn-sm w-100">
-                <i class="bi bi-plus-circle me-1"></i>Drohne hinzufügen
-              </button>
-            </form>
+      <!-- Neuer Halter -->
+      <div class="col-lg-4">
+        <h6 class="fw-semibold mb-3">Neuen Halter erfassen</h6>
+        <form method="post">
+          <input type="hidden" name="action" value="add_holder">
+          <div class="mb-2">
+            <label class="form-label fw-semibold small mb-1">Firmenname *</label>
+            <input type="text" name="holder_name" class="form-control form-control-sm"
+                   placeholder="z.B. TPC AG" required>
           </div>
-
-          <!-- Drohnenliste -->
-          <div class="col-lg-8">
-            <h6 class="fw-semibold mb-3">Erfasste Drohnen</h6>
-            {% if aircraft_list %}
-            <div class="table-responsive">
-              <table class="table table-sm table-hover align-middle mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th>Name</th>
-                    <th>Marke / Typ</th>
-                    <th>Reg.-Nr.</th>
-                    <th>Ausstattung</th>
-                    <th class="text-end"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for ac in aircraft_list %}
-                  <tr>
-                    <td>
-                      <strong>{{ ac.name }}</strong>
-                      {% if ac.is_default %}<span class="badge bg-srg ms-1 small">Standard</span>{% endif %}
-                    </td>
-                    <td class="text-muted small">{{ ac.brand }}{% if ac.type_serial %} · {{ ac.type_serial }}{% endif %}</td>
-                    <td class="text-muted font-monospace small">{{ ac.registration or '–' }}</td>
-                    <td class="text-muted small">{{ ac.equipment or '–' }}</td>
-                    <td class="text-end">
-                      <div class="d-flex gap-1 justify-content-end">
-                        <button type="button" class="btn btn-outline-secondary btn-sm"
-                                data-bs-toggle="modal" data-bs-target="#editAircraftModal"
-                                data-id="{{ ac.id }}"
-                                data-name="{{ ac.name }}"
-                                data-brand="{{ ac.brand }}"
-                                data-type="{{ ac.type_serial }}"
-                                data-reg="{{ ac.registration }}"
-                                data-equip="{{ ac.equipment }}">
-                          <i class="bi bi-pencil"></i>
-                        </button>
-                        {% if not ac.is_default %}
-                        <form method="post" class="d-inline">
-                          <input type="hidden" name="action" value="set_default">
-                          <input type="hidden" name="ac_id" value="{{ ac.id }}">
-                          <button type="submit" class="btn btn-outline-secondary btn-sm" title="Als Standard">
-                            <i class="bi bi-star"></i>
-                          </button>
-                        </form>
-                        {% endif %}
-                        <form method="post" class="d-inline"
-                              onsubmit="return confirm('Drohne «{{ ac.name }}» wirklich löschen?')">
-                          <input type="hidden" name="action" value="delete_aircraft">
-                          <input type="hidden" name="ac_id" value="{{ ac.id }}">
-                          <button type="submit" class="btn btn-outline-danger btn-sm">
-                            <i class="bi bi-trash"></i>
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small mb-1">Adresse</label>
+            <input type="text" name="holder_address" class="form-control form-control-sm"
+                   placeholder="z.B. Fernsehstrasse 1-4, 8052 Zürich">
+          </div>
+          <div class="mb-3">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" name="holder_default" id="holderDefaultNew">
+              <label class="form-check-label small" for="holderDefaultNew">Als Standard im Formular verwenden</label>
             </div>
-            {% else %}
-            <p class="text-muted small">Noch keine Drohnen hinterlegt.</p>
-            {% endif %}
           </div>
-
-        </div>
+          <button type="submit" class="btn btn-srg btn-sm w-100">
+            <i class="bi bi-plus-circle me-1"></i>Halter hinzufügen
+          </button>
+        </form>
       </div>
+
+      <!-- Halterliste -->
+      <div class="col-lg-8">
+        <h6 class="fw-semibold mb-3">Erfasste Halter</h6>
+        {% if drone_holders %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Name</th>
+                <th>Adresse</th>
+                <th class="text-end"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for h in drone_holders %}
+              <tr>
+                <td>
+                  <strong>{{ h.name }}</strong>
+                  {% if h.user_id is none %}
+                    <span class="badge bg-secondary ms-1 small">System</span>
+                  {% elif h.is_default %}
+                    <span class="badge bg-srg ms-1 small">Standard</span>
+                  {% endif %}
+                </td>
+                <td class="text-muted small">{{ h.address or '–' }}</td>
+                <td class="text-end">
+                  {% if h.user_id is not none %}
+                  <div class="d-flex gap-1 justify-content-end">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-toggle="modal" data-bs-target="#editHolderModal"
+                            data-id="{{ h.id }}"
+                            data-name="{{ h.name }}"
+                            data-address="{{ h.address }}">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    {% if not h.is_default %}
+                    <form method="post" class="d-inline">
+                      <input type="hidden" name="action" value="set_default_holder">
+                      <input type="hidden" name="holder_id" value="{{ h.id }}">
+                      <button type="submit" class="btn btn-outline-secondary btn-sm" title="Als Standard im Formular verwenden">
+                        <i class="bi bi-star"></i>
+                      </button>
+                    </form>
+                    {% else %}
+                    <span class="btn btn-srg btn-sm" title="Standard">
+                      <i class="bi bi-star-fill"></i>
+                    </span>
+                    {% endif %}
+                    <form method="post" class="d-inline"
+                          onsubmit="return confirm('Halter «{{ h.name }}» wirklich löschen?')">
+                      <input type="hidden" name="action" value="delete_holder">
+                      <input type="hidden" name="holder_id" value="{{ h.id }}">
+                      <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                  {% else %}
+                  <span class="text-muted small">nicht änderbar</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted small">Noch keine Halter hinterlegt.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ 3. MEINE DROHNEN ════════════════════════════ -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header section-header">
+    <i class="bi bi-send me-2"></i>Meine Drohnen
+  </div>
+  <div class="card-body">
+    <div class="row g-4">
+
+      <!-- Neue Drohne erfassen -->
+      <div class="col-lg-4">
+        <h6 class="fw-semibold mb-3">Neue Drohne erfassen</h6>
+        <form method="post">
+          <input type="hidden" name="action" value="add_aircraft">
+          <div class="mb-2">
+            <label class="form-label fw-semibold small mb-1">Bezeichnung / Name *</label>
+            <input type="text" name="ac_name" class="form-control form-control-sm"
+                   placeholder="z.B. DJI Mavic 3" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold small mb-1">Marke</label>
+            <input type="text" name="ac_brand" class="form-control form-control-sm"
+                   placeholder="z.B. DJI">
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold small mb-1">Typ / Seriennummer</label>
+            <input type="text" name="ac_type" class="form-control form-control-sm"
+                   placeholder="z.B. Multirotor / SN-12345">
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold small mb-1">Reg.-Nr. (eID)</label>
+            <input type="text" name="ac_reg" class="form-control form-control-sm"
+                   placeholder="z.B. CHE-XXXX">
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold small mb-1">Spez. Ausstattung</label>
+            <input type="text" name="ac_equip" class="form-control form-control-sm"
+                   placeholder="z.B. Wärmebildkamera">
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold small mb-1">Drohnenhalter zuordnen</label>
+            {% for h in drone_holders %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="holder_ids[]"
+                     value="{{ h.id }}" id="newAcHolder{{ h.id }}"
+                     {% if loop.first %}checked{% endif %}>
+              <label class="form-check-label small" for="newAcHolder{{ h.id }}">
+                {{ h.name }}{% if h.user_id is none %} <span class="text-muted">(System)</span>{% endif %}
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="mb-3">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" name="ac_default" id="acDefault">
+              <label class="form-check-label small" for="acDefault">Als Standard-Drohne verwenden</label>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-srg btn-sm w-100">
+            <i class="bi bi-plus-circle me-1"></i>Drohne hinzufügen
+          </button>
+        </form>
+      </div>
+
+      <!-- Drohnenliste -->
+      <div class="col-lg-8">
+        <h6 class="fw-semibold mb-3">Erfasste Drohnen</h6>
+        {% if aircraft_list %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Name</th>
+                <th>Marke / Typ</th>
+                <th>Reg.-Nr.</th>
+                <th>Halter</th>
+                <th class="text-end"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ac in aircraft_list %}
+              {% set ac_holder_ids = aircraft_holder_ids.get(ac.id, []) %}
+              <tr>
+                <td>
+                  <strong>{{ ac.name }}</strong>
+                  {% if ac.is_default %}<span class="badge bg-srg ms-1 small">Standard</span>{% endif %}
+                </td>
+                <td class="text-muted small">{{ ac.brand }}{% if ac.type_serial %} · {{ ac.type_serial }}{% endif %}</td>
+                <td class="text-muted font-monospace small">{{ ac.registration or '–' }}</td>
+                <td class="small text-muted">
+                  {% set ac_holder_names = [] %}
+                  {% for h in drone_holders if h.id in ac_holder_ids %}
+                    {% if ac_holder_names.append(h.name) %}{% endif %}
+                  {% endfor %}
+                  {{ ac_holder_names | join(', ') or '–' }}
+                </td>
+                <td class="text-end">
+                  <div class="d-flex gap-1 justify-content-end">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-toggle="modal" data-bs-target="#editAircraftModal"
+                            data-id="{{ ac.id }}"
+                            data-name="{{ ac.name }}"
+                            data-brand="{{ ac.brand }}"
+                            data-type="{{ ac.type_serial }}"
+                            data-reg="{{ ac.registration }}"
+                            data-equip="{{ ac.equipment }}"
+                            data-holder-ids="{{ ac_holder_ids | join(',') }}">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    {% if not ac.is_default %}
+                    <form method="post" class="d-inline">
+                      <input type="hidden" name="action" value="set_default">
+                      <input type="hidden" name="ac_id" value="{{ ac.id }}">
+                      <button type="submit" class="btn btn-outline-secondary btn-sm" title="Als Standard">
+                        <i class="bi bi-star"></i>
+                      </button>
+                    </form>
+                    {% endif %}
+                    <form method="post" class="d-inline"
+                          onsubmit="return confirm('Drohne «{{ ac.name }}» wirklich löschen?')">
+                      <input type="hidden" name="action" value="delete_aircraft">
+                      <input type="hidden" name="ac_id" value="{{ ac.id }}">
+                      <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted small">Noch keine Drohnen hinterlegt.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit-Holder Modal -->
+<div class="modal fade" id="editHolderModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-building me-2"></i>Drohnenhalter bearbeiten</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post">
+        <input type="hidden" name="action" value="edit_holder">
+        <input type="hidden" name="holder_id" id="editHolderId">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Firmenname *</label>
+            <input type="text" name="holder_name" id="editHolderName" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Adresse</label>
+            <input type="text" name="holder_address" id="editHolderAddress" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="submit" class="btn btn-srg">
+            <i class="bi bi-floppy me-1"></i>Speichern
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
@@ -238,6 +380,18 @@
             <label class="form-label fw-semibold">Spez. Ausstattung</label>
             <input type="text" name="ac_equip" id="editAcEquip" class="form-control">
           </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Drohnenhalter zuordnen</label>
+            {% for h in drone_holders %}
+            <div class="form-check">
+              <input class="form-check-input edit-ac-holder" type="checkbox" name="holder_ids[]"
+                     value="{{ h.id }}" id="editAcHolder{{ h.id }}">
+              <label class="form-check-label small" for="editAcHolder{{ h.id }}">
+                {{ h.name }}{% if h.user_id is none %} <span class="text-muted">(System)</span>{% endif %}
+              </label>
+            </div>
+            {% endfor %}
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
@@ -253,14 +407,26 @@
 
 {% block scripts %}
 <script>
+document.getElementById('editHolderModal')?.addEventListener('show.bs.modal', function(e) {
+  const btn = e.relatedTarget;
+  document.getElementById('editHolderId').value      = btn.dataset.id;
+  document.getElementById('editHolderName').value    = btn.dataset.name;
+  document.getElementById('editHolderAddress').value = btn.dataset.address || '';
+});
+
 document.getElementById('editAircraftModal')?.addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
   document.getElementById('editAcId').value    = btn.dataset.id;
   document.getElementById('editAcName').value  = btn.dataset.name;
-  document.getElementById('editAcBrand').value = btn.dataset.brand;
-  document.getElementById('editAcType').value  = btn.dataset.type;
-  document.getElementById('editAcReg').value   = btn.dataset.reg;
-  document.getElementById('editAcEquip').value = btn.dataset.equip;
+  document.getElementById('editAcBrand').value = btn.dataset.brand || '';
+  document.getElementById('editAcType').value  = btn.dataset.type  || '';
+  document.getElementById('editAcReg').value   = btn.dataset.reg   || '';
+  document.getElementById('editAcEquip').value = btn.dataset.equip || '';
+
+  const holderIds = (btn.dataset.holderIds || '').split(',').map(s => s.trim()).filter(Boolean);
+  document.querySelectorAll('.edit-ac-holder').forEach(cb => {
+    cb.checked = holderIds.includes(cb.value);
+  });
 });
 </script>
 {% endblock %}

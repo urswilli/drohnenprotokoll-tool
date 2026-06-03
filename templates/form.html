@@ -15,25 +15,44 @@
 <form method="post" action="{{ url_for('submit') }}" id="drohnenForm">
 
 <!-- ═══════════════════════════ 1. DROHNENHALTER ════════════════════════════ -->
-{% set holder_company = (profile.pilot_company if profile and profile.pilot_company else 'Schweizer Radio und Fernsehen (SRF)') %}
-{% set holder_address = (profile.pilot_company_address if profile and profile.pilot_company_address else 'Fernsehstrasse 1-4, 8052 Zürich') %}
+{% set ns = namespace(default_holder_id=1) %}
+{% for h in drone_holders if h.is_default %}{% set ns.default_holder_id = h.id %}{% endfor %}
 <div class="card mb-3 border-0 shadow-sm">
   <div class="card-header section-header">
     <i class="bi bi-building me-2"></i>Firma und Adresse des Drohnenhalters
+    {% if drone_holders|length > 1 %}
+    <span class="badge bg-dropdown ms-2 fw-normal"><i class="bi bi-list-ul me-1"></i>Dropdown</span>
+    {% else %}
     <span class="badge bg-profile ms-2 fw-normal"><i class="bi bi-person-fill me-1"></i>Profil</span>
+    {% endif %}
   </div>
   <div class="card-body">
+    {% if drone_holders|length > 1 %}
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Drohnenhalter auswählen</label>
+      <select class="form-select" id="holderSelect">
+        {% for h in drone_holders %}
+        <option value="{{ h.id }}"
+                data-company="{{ h.name }}"
+                data-address="{{ h.address }}"
+                {% if h.id == ns.default_holder_id %}selected{% endif %}>
+          {{ h.name }}{% if h.is_default %} ★{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
     <div class="row g-3">
       <div class="col-md-6">
         <label class="form-label text-muted small">Firmenname</label>
-        <input type="text" class="form-control bg-light" value="{{ holder_company }}" readonly>
-        <input type="hidden" name="drone_holder_company" value="{{ holder_company }}">
+        <input type="text" class="form-control bg-light" id="holderCompanyDisplay" readonly>
+        <input type="hidden" name="drone_holder_company" id="holderCompanyHidden">
       </div>
       <div class="col-md-6">
         <label class="form-label text-muted small">Adresse</label>
-        <input type="text" class="form-control bg-light" value="{{ holder_address }}" readonly>
-        <input type="hidden" name="drone_holder_address" value="{{ holder_address }}">
-        <div class="form-text">Aus deinem Profil. <a href="{{ url_for('profile') }}">Profil bearbeiten</a></div>
+        <input type="text" class="form-control bg-light" id="holderAddressDisplay" readonly>
+        <input type="hidden" name="drone_holder_address" id="holderAddressHidden">
+        <div class="form-text"><a href="{{ url_for('profile') }}">Halter im Profil verwalten</a></div>
       </div>
     </div>
   </div>
@@ -120,26 +139,28 @@
       <select class="form-select" id="droneSelect">
         <option value="">– Drohne wählen –</option>
         {% if aircraft_list %}
-        <optgroup label="Meine Drohnen">
+        <optgroup label="Meine Drohnen" id="myDronesGroup">
           {% for ac in aircraft_list %}
           <option value="ac_{{ ac.id }}"
                   data-name="{{ ac.brand }}"
                   data-typ="{{ ac.type_serial }}"
                   data-seriennummer=""
-                  data-reg_nr="{{ ac.registration }}">
+                  data-reg_nr="{{ ac.registration }}"
+                  data-holder-ids="{{ aircraft_holder_ids.get(ac.id, [1]) | map('string') | join(',') }}">
             {{ ac.name }}{% if ac.brand %} – {{ ac.brand }}{% endif %}{% if ac.is_default %} ★{% endif %}
           </option>
           {% endfor %}
         </optgroup>
         {% endif %}
         {% if drones %}
-        <optgroup label="SRG-Drohnen">
+        <optgroup label="SRG-Drohnen" id="srgDronesGroup" data-srg>
           {% for d in drones %}
           <option value="{{ d.id }}"
                   data-name="{{ d.name }}"
                   data-typ="{{ d.typ }}"
                   data-seriennummer="{{ d.seriennummer }}"
-                  data-reg_nr="{{ d.reg_nr }}">
+                  data-reg_nr="{{ d.reg_nr }}"
+                  data-holder-ids="1">
             {{ d.name }}{% if d.typ %} – {{ d.typ }}{% endif %}
           </option>
           {% endfor %}
@@ -483,7 +504,50 @@ document.getElementById('sendeformatSelect')?.addEventListener('change', functio
   if (this.value) setVal(document.getElementById('sendeformat'), this.value);
 });
 
-// Auto-calculate flight minutes
+// ── Drohnenhalter-Dropdown ─────────────────────────────────────────────────
+const holderSelect = document.getElementById('holderSelect');
+
+// Holder-Daten aus Jinja, damit JS ohne erneuten Request die Werte kennt
+const holderData = {
+  {% for h in drone_holders %}
+  '{{ h.id }}': { company: {{ h.name | tojson }}, address: {{ h.address | tojson }} },
+  {% endfor %}
+};
+
+function updateHolder() {
+  const hid = holderSelect ? holderSelect.value : String(Object.keys(holderData)[0] || '1');
+  const data = holderData[hid] || Object.values(holderData)[0] || {};
+  const company = data.company || '';
+  const address = data.address || '';
+  document.getElementById('holderCompanyDisplay').value = company;
+  document.getElementById('holderAddressDisplay').value = address;
+  document.getElementById('holderCompanyHidden').value  = company;
+  document.getElementById('holderAddressHidden').value  = address;
+  filterDrones(hid);
+}
+
+function filterDrones(hid) {
+  const sel = document.getElementById('droneSelect');
+  if (!sel) return;
+  // Eigene Drohnen: nur zeigen wenn holder-id enthalten
+  sel.querySelectorAll('option[data-holder-ids]').forEach(opt => {
+    const ids = (opt.dataset.holderIds || '').split(',').map(s => s.trim());
+    opt.hidden = !ids.includes(String(hid));
+  });
+  // SRG-Optgroup nur bei holder_id=1 (SRG)
+  const srgGroup = document.getElementById('srgDronesGroup');
+  if (srgGroup) srgGroup.hidden = (String(hid) !== '1');
+  // Aktuelle Auswahl zurücksetzen falls versteckt
+  if (sel.selectedIndex > 0 && sel.options[sel.selectedIndex]?.hidden) {
+    sel.value = '';
+    sel.dispatchEvent(new Event('change'));
+  }
+}
+
+holderSelect?.addEventListener('change', updateHolder);
+updateHolder(); // Initialzustand
+
+// ── Bidirektionale Flugzeit ────────────────────────────────────────────────
 function calcFlugminuten() {
   const start = document.getElementById('startzeit').value;
   const land  = document.getElementById('landezeit').value;
@@ -494,8 +558,23 @@ function calcFlugminuten() {
     if (mins > 0) setVal(document.getElementById('flugminuten'), mins);
   }
 }
-document.getElementById('startzeit')?.addEventListener('change', calcFlugminuten);
+function calcLandezeit() {
+  const start = document.getElementById('startzeit').value;
+  const mins  = parseInt(document.getElementById('flugminuten').value, 10);
+  if (!start || isNaN(mins) || mins <= 0) return;
+  const [sh,sm] = start.split(':').map(Number);
+  const total = sh*60+sm+mins;
+  const lh = Math.floor(total/60)%24, lm = total%60;
+  setVal(document.getElementById('landezeit'),
+         String(lh).padStart(2,'0')+':'+String(lm).padStart(2,'0'));
+}
+document.getElementById('startzeit')?.addEventListener('change', () => {
+  const land = document.getElementById('landezeit').value;
+  const mins = document.getElementById('flugminuten').value;
+  if (land) calcFlugminuten(); else if (mins) calcLandezeit();
+});
 document.getElementById('landezeit')?.addEventListener('change', calcFlugminuten);
+document.getElementById('flugminuten')?.addEventListener('change', calcLandezeit);
 
 // Sync EVA-Signaturfelder aus Sektion 3
 function syncEva() {
