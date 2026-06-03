@@ -200,9 +200,14 @@
                    placeholder="z.B. DJI">
           </div>
           <div class="mb-2">
-            <label class="form-label fw-semibold small mb-1">Typ / Seriennummer</label>
-            <input type="text" name="ac_type" class="form-control form-control-sm"
-                   placeholder="z.B. Multirotor / SN-12345">
+            <label class="form-label fw-semibold small mb-1">Typ</label>
+            <input type="text" name="ac_typ" class="form-control form-control-sm"
+                   placeholder="z.B. Multirotor">
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold small mb-1">Seriennummer</label>
+            <input type="text" name="ac_seriennummer" class="form-control form-control-sm"
+                   placeholder="z.B. 1ZNBJ1A001234">
           </div>
           <div class="mb-2">
             <label class="form-label fw-semibold small mb-1">Reg.-Nr. (eID)</label>
@@ -262,7 +267,7 @@
                   <strong>{{ ac.name }}</strong>
                   {% if ac.is_default %}<span class="badge bg-srg ms-1 small">Standard</span>{% endif %}
                 </td>
-                <td class="text-muted small">{{ ac.brand }}{% if ac.type_serial %} · {{ ac.type_serial }}{% endif %}</td>
+                <td class="text-muted small">{{ ac.brand }}{% if ac.typ %} · {{ ac.typ }}{% endif %}{% if ac.seriennummer %} · {{ ac.seriennummer }}{% endif %}</td>
                 <td class="text-muted font-monospace small">{{ ac.registration or '–' }}</td>
                 <td class="small text-muted">
                   {% set ac_holder_names = [] %}
@@ -278,7 +283,8 @@
                             data-id="{{ ac.id }}"
                             data-name="{{ ac.name }}"
                             data-brand="{{ ac.brand }}"
-                            data-type="{{ ac.type_serial }}"
+                            data-typ="{{ ac.typ }}"
+                            data-seriennummer="{{ ac.seriennummer }}"
                             data-reg="{{ ac.registration }}"
                             data-equip="{{ ac.equipment }}"
                             data-holder-ids="{{ ac_holder_ids | join(',') }}">
@@ -369,8 +375,12 @@
             <input type="text" name="ac_brand" id="editAcBrand" class="form-control">
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold">Typ / Seriennummer</label>
-            <input type="text" name="ac_type" id="editAcType" class="form-control">
+            <label class="form-label fw-semibold">Typ</label>
+            <input type="text" name="ac_typ" id="editAcTyp" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Seriennummer</label>
+            <input type="text" name="ac_seriennummer" id="editAcSeriennummer" class="form-control">
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Reg.-Nr. (eID)</label>
@@ -417,11 +427,12 @@ document.getElementById('editHolderModal')?.addEventListener('show.bs.modal', fu
 document.getElementById('editAircraftModal')?.addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
   document.getElementById('editAcId').value    = btn.dataset.id;
-  document.getElementById('editAcName').value  = btn.dataset.name;
-  document.getElementById('editAcBrand').value = btn.dataset.brand || '';
-  document.getElementById('editAcType').value  = btn.dataset.type  || '';
-  document.getElementById('editAcReg').value   = btn.dataset.reg   || '';
-  document.getElementById('editAcEquip').value = btn.dataset.equip || '';
+  document.getElementById('editAcName').value         = btn.dataset.name;
+  document.getElementById('editAcBrand').value        = btn.dataset.brand        || '';
+  document.getElementById('editAcTyp').value          = btn.dataset.typ          || '';
+  document.getElementById('editAcSeriennummer').value = btn.dataset.seriennummer || '';
+  document.getElementById('editAcReg').value          = btn.dataset.reg          || '';
+  document.getElementById('editAcEquip').value        = btn.dataset.equip        || '';
 
   const holderIds = (btn.dataset.holderIds || '').split(',').map(s => s.trim()).filter(Boolean);
   document.querySelectorAll('.edit-ac-holder').forEach(cb => {

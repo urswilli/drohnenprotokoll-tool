@@ -143,9 +143,10 @@
           {% for ac in aircraft_list %}
           <option value="ac_{{ ac.id }}"
                   data-name="{{ ac.brand }}"
-                  data-typ="{{ ac.type_serial }}"
-                  data-seriennummer=""
+                  data-typ="{{ ac.typ }}"
+                  data-seriennummer="{{ ac.seriennummer }}"
                   data-reg_nr="{{ ac.registration }}"
+                  data-equip="{{ ac.equipment }}"
                   data-holder-ids="{{ aircraft_holder_ids.get(ac.id, [1]) | map('string') | join(',') }}">
             {{ ac.name }}{% if ac.brand %} – {{ ac.brand }}{% endif %}{% if ac.is_default %} ★{% endif %}
           </option>
@@ -156,10 +157,11 @@
         <optgroup label="SRG-Drohnen" id="srgDronesGroup" data-srg>
           {% for d in drones %}
           <option value="{{ d.id }}"
-                  data-name="{{ d.name }}"
+                  data-name="{{ d.brand }}"
                   data-typ="{{ d.typ }}"
                   data-seriennummer="{{ d.seriennummer }}"
                   data-reg_nr="{{ d.reg_nr }}"
+                  data-equip="{{ d.equipment }}"
                   data-holder-ids="1">
             {{ d.name }}{% if d.typ %} – {{ d.typ }}{% endif %}
           </option>
@@ -176,12 +178,12 @@
     {% endif %}
     <div class="row g-3">
       <div class="col-md-4">
-        <label class="form-label fw-semibold">Name / Marke <span class="text-danger">*</span></label>
-        <input type="text" name="drone_brand" id="droneBrand" class="form-control" required placeholder="z.B. DJI Mavic 3">
+        <label class="form-label fw-semibold">Marke <span class="text-danger">*</span></label>
+        <input type="text" name="drone_brand" id="droneBrand" class="form-control" required placeholder="z.B. DJI">
       </div>
       <div class="col-md-4">
         <label class="form-label fw-semibold">Typ</label>
-        <input type="text" name="drone_type" id="droneType" class="form-control" placeholder="z.B. Multirotor">
+        <input type="text" name="drone_typ" id="droneTyp" class="form-control" placeholder="z.B. Mavic 3 Enterprise">
       </div>
       <div class="col-md-4">
         <label class="form-label fw-semibold">Seriennummer</label>
@@ -190,6 +192,10 @@
       <div class="col-md-4">
         <label class="form-label fw-semibold">Reg.-Nr. (eID)</label>
         <input type="text" name="drone_reg" id="droneReg" class="form-control" placeholder="z.B. CHE-XXXX">
+      </div>
+      <div class="col-md-8">
+        <label class="form-label fw-semibold">Spez. Ausstattung</label>
+        <input type="text" name="drone_equipment" id="droneEquipment" class="form-control" placeholder="z.B. Wärmebildkamera">
       </div>
     </div>
   </div>
@@ -449,9 +455,26 @@
     <i class="bi bi-send me-2"></i>Formular abschliessen und senden
   </div>
   <div class="card-body">
-    <div class="alert alert-light border mb-3">
-      <p class="mb-1"><strong>Empfänger:</strong> drohnen@srf.ch &amp; eng-service@srf.ch</p>
-      <p class="mb-0 text-muted small">CC: Einsatzverantwortliche/r SRG &amp; Drohnenpilot (falls E-Mail angegeben)</p>
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Empfänger</label>
+      <div class="form-check">
+        <input type="checkbox" class="form-check-input" name="rcpt_eng_service" id="rcptEngService" value="on" checked>
+        <label class="form-check-label" for="rcptEngService">eng-service@srf.ch</label>
+      </div>
+      <div class="form-check">
+        <input type="checkbox" class="form-check-input" name="rcpt_drohnen" id="rcptDrohnen" value="on" checked>
+        <label class="form-check-label" for="rcptDrohnen">drohnen@srf.ch</label>
+      </div>
+      <div class="form-check">
+        <input type="checkbox" class="form-check-input" name="rcpt_cc_eva" id="rcptCcEva" value="on" checked>
+        <label class="form-check-label" for="rcptCcEva">CC Einsatzverantwortliche/r SRG</label>
+      </div>
+      <div class="form-check mb-2">
+        <input type="checkbox" class="form-check-input" name="rcpt_cc_pilot" id="rcptCcPilot" value="on" checked>
+        <label class="form-check-label" for="rcptCcPilot">CC Drohnenpilot</label>
+      </div>
+      <label class="form-label small fw-semibold mt-1 mb-1">Weitere Adressen (kommasepariert)</label>
+      <input type="text" name="rcpt_extra" class="form-control form-control-sm" placeholder="z.B. weitere@srf.ch, extern@beispiel.ch">
     </div>
     <div class="form-check mb-3">
       <input type="checkbox" class="form-check-input" name="send_email" id="sendEmail" value="on" checked>
@@ -494,9 +517,10 @@ function setVal(el, v) {
 document.getElementById('droneSelect')?.addEventListener('change', function() {
   const opt = this.options[this.selectedIndex];
   setVal(document.getElementById('droneBrand'),        opt.dataset.name         || '');
-  setVal(document.getElementById('droneType'),         opt.dataset.typ          || '');
+  setVal(document.getElementById('droneTyp'),          opt.dataset.typ          || '');
   setVal(document.getElementById('droneSeriennummer'), opt.dataset.seriennummer || '');
   setVal(document.getElementById('droneReg'),          opt.dataset.reg_nr       || '');
+  setVal(document.getElementById('droneEquipment'),    opt.dataset.equip        || '');
 });
 
 // Auto-fill sendeformat from dropdown

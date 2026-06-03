@@ -67,13 +67,24 @@ def _get_changelog():
     def _parse(raw):
         entries = []
         n = 0
-        for line in raw.splitlines():
-            if not line.strip():
+        # Records are separated by \x1e (ASCII Record Separator, git %x1e)
+        for record in raw.split('\x1e'):
+            record = record.strip()
+            if not record:
                 continue
-            parts = line.split('\x1f')
-            if len(parts) != 4:
+            # Fields: hash \x1f subject \x1f body \x1f date
+            # Use rsplit from right to extract the date (always clean ISO string)
+            last = record.rfind('\x1f')
+            if last < 0:
                 continue
-            h, author, subject, iso = parts
+            iso = record[last + 1:].strip()
+            rest = record[:last]
+            parts = rest.split('\x1f', 2)
+            if len(parts) < 2:
+                continue
+            h = parts[0].strip()
+            subject = parts[1].strip()
+            body = parts[2].strip() if len(parts) > 2 else ''
             n += 1
             commit_type = ''
             if ':' in subject:
@@ -84,8 +95,8 @@ def _get_changelog():
             entries.append({
                 'version': n,
                 'hash': h,
-                'author': author,
                 'subject': subject,
+                'body': body,
                 'type': commit_type,
                 'date': iso[:10],
             })
@@ -103,8 +114,8 @@ def _get_changelog():
         import subprocess
         out = subprocess.check_output(
             ['git', 'log', '--no-merges', '--reverse',
-             '--pretty=format:%h\x1f%an\x1f%s\x1f%cI'],
-            cwd=BASE_DIR, stderr=subprocess.DEVNULL).decode('utf-8')
+             '--pretty=format:%x1e%h%x1f%s%x1f%b%x1f%cI'],
+            cwd=BASE_DIR, stderr=subprocess.DEVNULL).decode('utf-8', errors='replace')
         return _parse(out)
     except Exception:
         return []
@@ -196,7 +207,8 @@ def init_db():
                 user_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 brand TEXT DEFAULT '',
-                type_serial TEXT DEFAULT '',
+                typ TEXT DEFAULT '',
+                seriennummer TEXT DEFAULT '',
                 registration TEXT DEFAULT '',
                 equipment TEXT DEFAULT '',
                 is_default INTEGER DEFAULT 0,
@@ -205,9 +217,11 @@ def init_db():
             CREATE TABLE IF NOT EXISTS drones (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
+                brand TEXT DEFAULT '',
                 typ TEXT DEFAULT '',
                 seriennummer TEXT DEFAULT '',
-                reg_nr TEXT DEFAULT ''
+                reg_nr TEXT DEFAULT '',
+                equipment TEXT DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
@@ -239,6 +253,22 @@ def init_db():
         ''')
         try:
             conn.execute("ALTER TABLE drones ADD COLUMN reg_nr TEXT DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE drones ADD COLUMN brand TEXT DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE drones ADD COLUMN equipment TEXT DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE aircraft ADD COLUMN typ TEXT DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE aircraft ADD COLUMN seriennummer TEXT DEFAULT ''")
         except Exception:
             pass
         try:
@@ -362,12 +392,12 @@ def fill_pdf(form_data):
 
         # Aircraft
         'Text141': form_data.get('drone_brand', ''),
-        'Text142': form_data.get('drone_type', ''),
-        'Text143': form_data.get('drone_equipment', ''),
-        'Text144': ' / '.join(p for p in [
-            form_data.get('drone_seriennummer', ''),
-            form_data.get('drone_reg', '')
+        'Text142': ' / '.join(p for p in [
+            form_data.get('drone_typ', ''),
+            form_data.get('drone_seriennummer', '')
         ] if p),
+        'Text143': form_data.get('drone_equipment', ''),
+        'Text144': form_data.get('drone_reg', ''),
 
         # Dates & location
         'Text151': form_data.get('drehdatum', today),
@@ -458,7 +488,10 @@ def send_email(form_data, pdf_path, filename):
     redaktion = form_data.get('redaktion', '')
     sendeformat = form_data.get('sendeformat', '')
     pilot_name = form_data.get('pilot_name', '')
-    drone_info = f"{form_data.get('drone_brand','')} {form_data.get('drone_type','')} {form_data.get('drone_reg','')}"
+    drone_parts = [form_data.get('drone_brand', ''), form_data.get('drone_typ', ''),
+                   form_data.get('drone_seriennummer', ''), form_data.get('drone_reg', ''),
+                   form_data.get('drone_equipment', '')]
+    drone_info = ' '.join(p for p in drone_parts if p)
     drehort = form_data.get('drehort', '')
     kommentar = form_data.get('besondere_ereignisse', '')
     eva_email = form_data.get('eva_email', '')
@@ -492,9 +525,24 @@ def send_email(form_data, pdf_path, filename):
         recipients = [test_addr]
         subject = f"[TEST] {subject}"
     else:
-        to_header = 'drohnen@srf.ch; eng-service@srf.ch'
-        cc_list = [e for e in [eva_email, pilot_email] if e]
-        recipients = ['drohnen@srf.ch', 'eng-service@srf.ch'] + cc_list
+        to_list = []
+        if form_data.get('rcpt_eng_service', 'on') == 'on':
+            to_list.append('eng-service@srf.ch')
+        if form_data.get('rcpt_drohnen', 'on') == 'on':
+            to_list.append('drohnen@srf.ch')
+        cc_list = []
+        if form_data.get('rcpt_cc_eva', 'on') == 'on' and eva_email:
+            cc_list.append(eva_email)
+        if form_data.get('rcpt_cc_pilot', 'on') == 'on' and pilot_email:
+            cc_list.append(pilot_email)
+        for addr in form_data.get('rcpt_extra', '').split(','):
+            addr = addr.strip()
+            if addr and '@' in addr:
+                cc_list.append(addr)
+        if not to_list and not cc_list:
+            return False, 'Keine Empfänger ausgewählt'
+        to_header = '; '.join(to_list)
+        recipients = to_list + cc_list
 
     msg = MIMEMultipart()
     msg['From'] = smtp_from
@@ -785,6 +833,9 @@ def submit():
     for i in range(1, 18):
         if f'cb_{i}' not in form_data:
             form_data[f'cb_{i}'] = 'off'
+    for key in ('rcpt_eng_service', 'rcpt_drohnen', 'rcpt_cc_eva', 'rcpt_cc_pilot'):
+        if key not in form_data:
+            form_data[key] = 'off'
 
     try:
         pdf_path, filename = fill_pdf(form_data)
@@ -942,12 +993,13 @@ def profile():
                 if is_default:
                     conn.execute('UPDATE aircraft SET is_default=0 WHERE user_id=?', (user_id,))
                 cur = conn.execute(
-                    'INSERT INTO aircraft(user_id,name,brand,type_serial,registration,equipment,is_default) '
-                    'VALUES(?,?,?,?,?,?,?)',
+                    'INSERT INTO aircraft(user_id,name,brand,typ,seriennummer,registration,equipment,is_default) '
+                    'VALUES(?,?,?,?,?,?,?,?)',
                     (user_id,
                      request.form.get('ac_name', ''),
                      request.form.get('ac_brand', ''),
-                     request.form.get('ac_type', ''),
+                     request.form.get('ac_typ', ''),
+                     request.form.get('ac_seriennummer', ''),
                      request.form.get('ac_reg', ''),
                      request.form.get('ac_equip', ''),
                      is_default))
@@ -966,11 +1018,12 @@ def profile():
             elif action == 'edit_aircraft':
                 ac_id = request.form.get('ac_id')
                 conn.execute(
-                    'UPDATE aircraft SET name=?, brand=?, type_serial=?, registration=?, equipment=? '
+                    'UPDATE aircraft SET name=?, brand=?, typ=?, seriennummer=?, registration=?, equipment=? '
                     'WHERE id=? AND user_id=?',
                     (request.form.get('ac_name', ''),
                      request.form.get('ac_brand', ''),
-                     request.form.get('ac_type', ''),
+                     request.form.get('ac_typ', ''),
+                     request.form.get('ac_seriennummer', ''),
                      request.form.get('ac_reg', ''),
                      request.form.get('ac_equip', ''),
                      ac_id, user_id))
@@ -1102,11 +1155,13 @@ def admin():
             if name:
                 with get_db() as conn:
                     conn.execute(
-                        'INSERT INTO drones(name, typ, seriennummer, reg_nr) VALUES(?,?,?,?)',
+                        'INSERT INTO drones(name, brand, typ, seriennummer, reg_nr, equipment) VALUES(?,?,?,?,?,?)',
                         (name,
+                         request.form.get('drone_brand', '').strip(),
                          request.form.get('drone_typ', '').strip(),
                          request.form.get('drone_seriennummer', '').strip(),
-                         request.form.get('drone_reg_nr', '').strip()))
+                         request.form.get('drone_reg_nr', '').strip(),
+                         request.form.get('drone_equipment', '').strip()))
                     conn.commit()
                 flash('Drohne hinzugefügt.', 'success')
             else:
@@ -1118,11 +1173,13 @@ def admin():
             if name:
                 with get_db() as conn:
                     conn.execute(
-                        'UPDATE drones SET name=?, typ=?, seriennummer=?, reg_nr=? WHERE id=?',
+                        'UPDATE drones SET name=?, brand=?, typ=?, seriennummer=?, reg_nr=?, equipment=? WHERE id=?',
                         (name,
+                         request.form.get('drone_brand', '').strip(),
                          request.form.get('drone_typ', '').strip(),
                          request.form.get('drone_seriennummer', '').strip(),
                          request.form.get('drone_reg_nr', '').strip(),
+                         request.form.get('drone_equipment', '').strip(),
                          did))
                     conn.commit()
                 flash('Drohne aktualisiert.', 'success')

@@ -90,12 +90,8 @@
               <span class="text-muted small ms-auto">{{ e.date }}</span>
             </div>
             <div class="small mt-1">{{ e.subject }}</div>
-            {% if e.author or e.hash %}
-            <div class="text-muted mt-1" style="font-size:.75em">
-              {% if e.author %}<i class="bi bi-person-fill me-1"></i>{{ e.author }}{% endif %}
-              {% if e.author and e.hash %}&nbsp;·&nbsp;{% endif %}
-              {% if e.hash %}<code class="text-muted">{{ e.hash }}</code>{% endif %}
-            </div>
+            {% if e.body %}
+            <p class="small text-muted mt-1 mb-0" style="white-space: pre-line">{{ e.body }}</p>
             {% endif %}
           </li>
           {% endfor %}

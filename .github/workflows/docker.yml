@@ -32,16 +32,24 @@ jobs:
           COMMIT_TYPES = {'feat', 'fix', 'style', 'docs', 'refactor', 'chore', 'perf', 'ci', 'build', 'test'}
           out = subprocess.check_output(
               ['git', 'log', '--no-merges', '--reverse',
-               '--pretty=format:%h\x1f%an\x1f%s\x1f%cI']).decode('utf-8')
+               '--pretty=format:%x1e%h%x1f%s%x1f%b%x1f%cI']).decode('utf-8', errors='replace')
           entries = []
           n = 0
-          for line in out.splitlines():
-              if not line.strip():
+          for record in out.split('\x1e'):
+              record = record.strip()
+              if not record:
                   continue
-              parts = line.split('\x1f')
-              if len(parts) != 4:
+              last = record.rfind('\x1f')
+              if last < 0:
                   continue
-              h, author, subject, iso = parts
+              iso = record[last + 1:].strip()
+              rest = record[:last]
+              parts = rest.split('\x1f', 2)
+              if len(parts) < 2:
+                  continue
+              h = parts[0].strip()
+              subject = parts[1].strip()
+              body = parts[2].strip() if len(parts) > 2 else ''
               n += 1
               commit_type = ''
               if ':' in subject:
@@ -49,8 +57,9 @@ jobs:
                   if prefix in COMMIT_TYPES:
                       commit_type = prefix
                       subject = subject[len(prefix) + 1:].strip()
-              entries.append({'version': n, 'hash': h, 'author': author,
-                              'subject': subject, 'type': commit_type, 'date': iso[:10]})
+              entries.append({'version': n, 'hash': h,
+                              'subject': subject, 'body': body,
+                              'type': commit_type, 'date': iso[:10]})
           entries.reverse()  # neueste zuerst
           with open('changelog.json', 'w', encoding='utf-8') as f:
               json.dump(entries, f, ensure_ascii=False, indent=2)
