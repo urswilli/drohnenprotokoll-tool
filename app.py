@@ -1031,7 +1031,7 @@ def profile():
                      request.form.get('ac_equip', ''),
                      is_default))
                 new_ac_id = cur.lastrowid
-                holder_ids = request.form.getlist('holder_ids[]') or ['1']
+                holder_ids = [h for h in request.form.getlist('holder_ids[]') if str(h) != '1']
                 for hid in holder_ids:
                     try:
                         conn.execute(
@@ -1054,7 +1054,7 @@ def profile():
                      request.form.get('ac_reg', ''),
                      request.form.get('ac_equip', ''),
                      ac_id, user_id))
-                holder_ids = request.form.getlist('holder_ids[]') or ['1']
+                holder_ids = [h for h in request.form.getlist('holder_ids[]') if str(h) != '1']
                 conn.execute('DELETE FROM aircraft_holder_map WHERE aircraft_id=?', (ac_id,))
                 for hid in holder_ids:
                     try:

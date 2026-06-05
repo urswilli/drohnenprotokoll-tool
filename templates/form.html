@@ -581,9 +581,12 @@ function filterDrones(hid) {
   // "Meine Drohnen"-Gruppe bei SRF-Halter verbergen
   const myGroup = document.getElementById('myDronesGroup');
   if (myGroup) myGroup.hidden = isSRF;
-  // SRG-Optgroup nur bei holder_id=1 (SRG)
+  // SRG-Optgroup nur bei holder_id=1 (SRG) – Optgroup und Optionen verstecken
   const srgGroup = document.getElementById('srgDronesGroup');
-  if (srgGroup) srgGroup.hidden = !isSRF;
+  if (srgGroup) {
+    srgGroup.hidden = !isSRF;
+    srgGroup.querySelectorAll('option').forEach(opt => { opt.hidden = !isSRF; });
+  }
   // Aktuelle Auswahl zurücksetzen falls versteckt
   if (sel.selectedIndex > 0 && sel.options[sel.selectedIndex]?.hidden) {
     sel.value = '';
