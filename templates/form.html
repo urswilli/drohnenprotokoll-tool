@@ -573,8 +573,8 @@ function filterDrones(hid) {
   const sel = document.getElementById('droneSelect');
   if (!sel) return;
   const isSRF = (String(hid) === '1');
-  // Eigene Drohnen: nur zeigen wenn holder-id enthalten UND nicht SRF-Halter
-  sel.querySelectorAll('option[data-holder-ids]').forEach(opt => {
+  // Nur eigene Drohnen (myDronesGroup) filtern – SRG-Drohnen nicht anfassen
+  sel.querySelectorAll('#myDronesGroup option').forEach(opt => {
     const ids = (opt.dataset.holderIds || '').split(',').map(s => s.trim());
     opt.hidden = isSRF || !ids.includes(String(hid));
   });

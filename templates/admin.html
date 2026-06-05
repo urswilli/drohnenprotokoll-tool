@@ -681,6 +681,38 @@
 
 {% block scripts %}
 <script>
+// Inject _section into every POST form so the redirect can reopen the right section
+var _modalSection = '';
+document.addEventListener('show.bs.modal', function(e) {
+  if (e.relatedTarget) {
+    var sec = e.relatedTarget.closest('.collapse');
+    _modalSection = sec ? sec.id : '';
+  }
+});
+document.querySelectorAll('form').forEach(function(form) {
+  if (form.method.toLowerCase() !== 'post') return;
+  form.addEventListener('submit', function() {
+    var sec = form.closest('.collapse') || (form.closest('.modal') ? { id: _modalSection } : null);
+    var sectionId = sec ? sec.id : '';
+    if (!sectionId) return;
+    var inp = form.querySelector('input[name="_section"]');
+    if (!inp) { inp = document.createElement('input'); inp.type = 'hidden'; inp.name = '_section'; form.appendChild(inp); }
+    inp.value = sectionId;
+  });
+});
+
+// Reopen section after redirect (e.g. after saving a form)
+(function() {
+  var openId = new URLSearchParams(window.location.search).get('open');
+  if (!openId) return;
+  var el = document.getElementById(openId);
+  if (!el) return;
+  bootstrap.Collapse.getOrCreateInstance(el).show();
+  el.addEventListener('shown.bs.collapse', function() {
+    (el.closest('.card') || el).scrollIntoView({ behavior: 'instant', block: 'start' });
+  }, { once: true });
+})();
+
 document.getElementById('editRdModal')?.addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
   document.getElementById('editRdId').value   = btn.dataset.id;

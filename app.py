@@ -1313,7 +1313,9 @@ def admin():
                 conn.commit()
             flash('Redaktion gelöscht.', 'success')
 
-        return redirect(url_for('admin'))
+        section = request.form.get('_section', '')
+        target = url_for('admin') + (f'?open={section}' if section else '')
+        return redirect(target)
 
     with get_db() as conn:
         users = conn.execute(
