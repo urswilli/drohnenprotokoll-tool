@@ -6,218 +6,274 @@
 
 <div class="row g-4">
 
-  <!-- SMTP -->
-  <div class="col-lg-6">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header section-header">
-        <i class="bi bi-envelope-at me-2"></i>E-Mail / SMTP-Konfiguration
-      </div>
-      <div class="card-body">
-        <p class="text-muted small mb-3">
-          Das ausgefüllte PDF wird an <strong>drohnen@srf.ch</strong> und <strong>eng-service@srf.ch</strong>
-          gesendet. Konfigurieren Sie hier den SMTP-Server für den Versand.
-        </p>
-        <form method="post">
-          <input type="hidden" name="action" value="save_smtp">
-          <div class="row g-3">
-            <div class="col-8">
-              <label class="form-label fw-semibold">SMTP-Host</label>
-              <input type="text" name="smtp_host" class="form-control"
-                     value="{{ smtp.smtp_host }}" placeholder="z.B. smtp.srf.ch">
-            </div>
-            <div class="col-4">
-              <label class="form-label fw-semibold">Port</label>
-              <input type="number" name="smtp_port" class="form-control"
-                     value="{{ smtp.smtp_port or '587' }}" placeholder="587">
-            </div>
-            <div class="col-12">
-              <label class="form-label fw-semibold">Absender-Adresse</label>
-              <input type="email" name="smtp_from" class="form-control"
-                     value="{{ smtp.smtp_from }}" placeholder="drohnen-tool@srf.ch">
-            </div>
-            <div class="col-6">
-              <label class="form-label fw-semibold">Benutzername</label>
-              <input type="text" name="smtp_user" class="form-control"
-                     value="{{ smtp.smtp_user }}" placeholder="Benutzername">
-            </div>
-            <div class="col-6">
-              <label class="form-label fw-semibold">Passwort</label>
-              <input type="password" name="smtp_pass" class="form-control"
-                     value="{{ smtp.smtp_pass }}" placeholder="••••••••">
-            </div>
-          </div>
-          <button type="submit" class="btn btn-srg w-100 mt-3">
-            <i class="bi bi-floppy me-1"></i>SMTP speichern
-          </button>
-        </form>
-        {% if not smtp.smtp_host %}
-        <div class="alert alert-warning py-2 mt-3 mb-0">
-          <i class="bi bi-exclamation-triangle me-1"></i>
-          SMTP nicht konfiguriert – E-Mail-Versand deaktiviert.
-        </div>
-        {% else %}
-        <div class="alert alert-success py-2 mt-3 mb-0">
-          <i class="bi bi-check-circle me-1"></i>
-          SMTP konfiguriert: <code>{{ smtp.smtp_host }}:{{ smtp.smtp_port or 587 }}</code>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  <!-- Test-Modus -->
-  <div class="col-lg-6">
-    <div class="card border-0 shadow-sm {% if test.test_mode %}border-warning border-2{% endif %}">
-      <div class="card-header section-header">
-        <i class="bi bi-cone-striped me-2"></i>Test-Modus
-      </div>
-      <div class="card-body">
-        <form method="post">
-          <input type="hidden" name="action" value="save_testmode">
-          <div class="form-check form-switch mb-3">
-            <input class="form-check-input" type="checkbox" role="switch" name="test_mode" id="testModeSwitch"
-                   {% if test.test_mode %}checked{% endif %}>
-            <label class="form-check-label fw-semibold" for="testModeSwitch">Test-Modus aktiv</label>
-          </div>
-          <p class="text-muted small">
-            Bei aktivem Test-Modus gehen alle Protokoll-Mails ausschliesslich an die Testadresse
-            (Betreff mit <code>[TEST]</code>), und nur Administratoren können sich anmelden.
-          </p>
-          <div class="mb-2">
-            <label class="form-label fw-semibold">Test-Empfängeradresse</label>
-            <input type="email" name="test_email" class="form-control"
-                   value="{{ test.test_email }}" placeholder="test@dronenerds.ch">
-          </div>
-          <button type="submit" class="btn btn-srg w-100 mt-2">
-            <i class="bi bi-floppy me-1"></i>Test-Modus speichern
-          </button>
-        </form>
-        {% if test.test_mode %}
-        <div class="alert alert-warning py-2 mt-3 mb-0">
-          <i class="bi bi-exclamation-triangle me-1"></i>
-          Test-Modus ist <strong>aktiv</strong> – normale Nutzer sind ausgesperrt.
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  <!-- E-Mail-Benachrichtigungen -->
-  <div class="col-lg-6">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header section-header">
-        <i class="bi bi-bell me-2"></i>E-Mail-Benachrichtigungen
-      </div>
-      <div class="card-body">
-        <form method="post">
-          <input type="hidden" name="action" value="save_notifications">
-          <div class="mb-2">
-            <label class="form-label fw-semibold">Feedback-Empfängeradresse</label>
-            <input type="email" name="feedback_email" class="form-control"
-                   value="{{ notify.feedback_email }}" placeholder="feedback@dronenerds.ch">
-            <div class="form-text">Empfänger für Nachrichten aus der Feedback-Funktion.</div>
-          </div>
-          <div class="mb-2">
-            <label class="form-label fw-semibold">Admin-/Registrierungsadresse</label>
-            <input type="email" name="admin_email" class="form-control"
-                   value="{{ notify.admin_email }}" placeholder="info@dronenerds.ch">
-            <div class="form-text">Erhält bei jeder neuen Registrierung eine Mail mit Direkt-Freischalt-Link.</div>
-          </div>
-          <button type="submit" class="btn btn-srg w-100 mt-2">
-            <i class="bi bi-floppy me-1"></i>Benachrichtigungen speichern
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-
   <!-- Benutzerverwaltung -->
-  <div class="col-lg-6">
+  <div class="col-12">
     <div class="card border-0 shadow-sm">
-      <div class="card-header section-header">
-        <i class="bi bi-people me-2"></i>Benutzerverwaltung
+      <div class="card-header section-header collapsed d-flex justify-content-between align-items-center"
+           data-bs-toggle="collapse" data-bs-target="#collapseBenutzer">
+        <span>
+          <i class="bi bi-people me-2"></i>Benutzerverwaltung
+          {% if pending %}<span class="badge bg-warning text-dark ms-2">{{ pending|length }}</span>{% endif %}
+        </span>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
       </div>
-      <div class="card-body">
-        {% if pending %}
-        <div class="alert alert-warning py-2 mb-4">
-          <div class="fw-semibold mb-2"><i class="bi bi-person-exclamation me-1"></i>Offene Registrierungen ({{ pending|length }})</div>
-          {% for p in pending %}
-          <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
-            <div>
-              <div class="fw-semibold small">{{ p.pilot_name or '—' }}</div>
-              <div class="text-muted small">{{ p.email or p.username }}</div>
-            </div>
-            <div class="text-nowrap">
-              <form method="post" class="d-inline">
-                <input type="hidden" name="action" value="approve_user">
-                <input type="hidden" name="uid" value="{{ p.id }}">
-                <button class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Freischalten</button>
-              </form>
-              <form method="post" class="d-inline"
-                    onsubmit="return confirm('Registrierung von «{{ p.email or p.username }}» ablehnen und löschen?')">
-                <input type="hidden" name="action" value="reject_user">
-                <input type="hidden" name="uid" value="{{ p.id }}">
-                <button class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></button>
-              </form>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-        {% endif %}
-
-        <!-- Neuen Benutzer anlegen -->
-        <h6 class="fw-semibold mb-3">Neuen Benutzer erstellen</h6>
-        <form method="post" class="mb-4">
-          <input type="hidden" name="action" value="create_user">
-          <div class="row g-2">
-            <div class="col-12">
-              <input type="text" name="new_username" class="form-control form-control-sm"
-                     placeholder="Benutzername *" required>
-            </div>
-            <div class="col-12">
-              <input type="password" name="new_password" class="form-control form-control-sm"
-                     placeholder="Passwort (min. 6 Zeichen) *" minlength="6" required>
-            </div>
-            <div class="col-12">
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" name="new_is_admin" id="newAdmin">
-                <label class="form-check-label small" for="newAdmin">Admin-Rechte</label>
+      <div class="collapse" id="collapseBenutzer">
+        <div class="card-body">
+          {% if pending %}
+          <div class="alert alert-warning py-2 mb-4">
+            <div class="fw-semibold mb-2"><i class="bi bi-person-exclamation me-1"></i>Offene Registrierungen ({{ pending|length }})</div>
+            {% for p in pending %}
+            <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+              <div>
+                <div class="fw-semibold small">{{ p.pilot_name or '—' }}</div>
+                <div class="text-muted small">{{ p.email or p.username }}</div>
+              </div>
+              <div class="text-nowrap">
+                <form method="post" class="d-inline">
+                  <input type="hidden" name="action" value="approve_user">
+                  <input type="hidden" name="uid" value="{{ p.id }}">
+                  <button class="btn btn-success btn-sm"><i class="bi bi-check-lg"></i> Freischalten</button>
+                </form>
+                <form method="post" class="d-inline"
+                      onsubmit="return confirm('Registrierung von «{{ p.email or p.username }}» ablehnen und löschen?')">
+                  <input type="hidden" name="action" value="reject_user">
+                  <input type="hidden" name="uid" value="{{ p.id }}">
+                  <button class="btn btn-outline-danger btn-sm"><i class="bi bi-x-lg"></i></button>
+                </form>
               </div>
             </div>
-            <div class="col-12">
-              <button type="submit" class="btn btn-srg btn-sm w-100">
-                <i class="bi bi-person-plus me-1"></i>Benutzer erstellen
-              </button>
-            </div>
+            {% endfor %}
           </div>
-        </form>
+          {% endif %}
 
-        <!-- Benutzerliste -->
-        <h6 class="fw-semibold mb-2">Bestehende Benutzer</h6>
-        <div class="list-group list-group-flush">
-          {% for user in users %}
-          <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-            <div>
-              <strong>{{ user.username }}</strong>
-              {% if user.is_admin %}
-                <span class="badge bg-warning text-dark ms-1">Admin</span>
-              {% endif %}
-              {% if user.id == session.user_id %}
-                <span class="badge bg-light text-muted border ms-1">Ich</span>
+          <h6 class="fw-semibold mb-3">Neuen Benutzer erstellen</h6>
+          <form method="post" class="mb-4">
+            <input type="hidden" name="action" value="create_user">
+            <div class="row g-2">
+              <div class="col-12">
+                <input type="text" name="new_username" class="form-control form-control-sm"
+                       placeholder="Benutzername *" required>
+              </div>
+              <div class="col-12">
+                <input type="password" name="new_password" class="form-control form-control-sm"
+                       placeholder="Passwort (min. 6 Zeichen) *" minlength="6" required>
+              </div>
+              <div class="col-12">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" name="new_is_admin" id="newAdmin">
+                  <label class="form-check-label small" for="newAdmin">Admin-Rechte</label>
+                </div>
+              </div>
+              <div class="col-12">
+                <button type="submit" class="btn btn-srg btn-sm w-100">
+                  <i class="bi bi-person-plus me-1"></i>Benutzer erstellen
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <h6 class="fw-semibold mb-2">Bestehende Benutzer</h6>
+          <div class="list-group list-group-flush">
+            {% for user in users %}
+            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+              <div>
+                <strong>{{ user.username }}</strong>
+                {% if user.is_admin %}
+                  <span class="badge bg-warning text-dark ms-1">Admin</span>
+                {% endif %}
+                {% if user.id == session.user_id %}
+                  <span class="badge bg-light text-muted border ms-1">Ich</span>
+                {% endif %}
+              </div>
+              {% if user.id != session.user_id %}
+              <form method="post" class="d-inline"
+                    onsubmit="return confirm('Benutzer «{{ user.username }}» wirklich löschen?')">
+                <input type="hidden" name="action" value="delete_user">
+                <input type="hidden" name="uid" value="{{ user.id }}">
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
               {% endif %}
             </div>
-            {% if user.id != session.user_id %}
-            <form method="post" class="d-inline"
-                  onsubmit="return confirm('Benutzer «{{ user.username }}» wirklich löschen?')">
-              <input type="hidden" name="action" value="delete_user">
-              <input type="hidden" name="uid" value="{{ user.id }}">
-              <button type="submit" class="btn btn-outline-danger btn-sm">
-                <i class="bi bi-trash"></i>
-              </button>
-            </form>
-            {% endif %}
+            {% endfor %}
           </div>
-          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drohnenverwaltung SRF -->
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header section-header collapsed d-flex justify-content-between align-items-center"
+           data-bs-toggle="collapse" data-bs-target="#collapseDrohnen">
+        <span><i class="bi bi-airplane me-2"></i>Drohnenverwaltung SRF</span>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
+      </div>
+      <div class="collapse" id="collapseDrohnen">
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-lg-4">
+              <h6 class="fw-semibold mb-3">Neue Drohne erfassen</h6>
+              <form method="post">
+                <input type="hidden" name="action" value="add_drone">
+                <div class="mb-2">
+                  <label class="form-label fw-semibold small mb-1">Name *</label>
+                  <input type="text" name="drone_name" class="form-control form-control-sm"
+                         placeholder="z.B. DJI Mavic 3" required>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label fw-semibold small mb-1">Marke</label>
+                  <input type="text" name="drone_brand" class="form-control form-control-sm"
+                         placeholder="z.B. DJI">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label fw-semibold small mb-1">Typ</label>
+                  <input type="text" name="drone_typ" class="form-control form-control-sm"
+                         placeholder="z.B. Mavic 3 Enterprise">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label fw-semibold small mb-1">Seriennummer</label>
+                  <input type="text" name="drone_seriennummer" class="form-control form-control-sm"
+                         placeholder="z.B. 1ZNBJ1A001234">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label fw-semibold small mb-1">Reg.-Nr. (eID)</label>
+                  <input type="text" name="drone_reg_nr" class="form-control form-control-sm"
+                         placeholder="z.B. CHE-XXXX">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold small mb-1">Spez. Ausstattung</label>
+                  <input type="text" name="drone_equipment" class="form-control form-control-sm"
+                         placeholder="z.B. Wärmebildkamera">
+                </div>
+                <button type="submit" class="btn btn-srg btn-sm w-100">
+                  <i class="bi bi-plus-circle me-1"></i>Drohne hinzufügen
+                </button>
+              </form>
+            </div>
+            <div class="col-lg-8">
+              <h6 class="fw-semibold mb-3">Erfasste SRF Drohnen</h6>
+              {% if drones %}
+              <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Name</th>
+                      <th>Marke</th>
+                      <th>Typ</th>
+                      <th>Seriennummer</th>
+                      <th>Reg.-Nr. (eID)</th>
+                      <th class="text-end"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for drone in drones %}
+                    <tr>
+                      <td class="fw-semibold">{{ drone.name }}</td>
+                      <td class="text-muted small">{{ drone.brand or '–' }}</td>
+                      <td class="text-muted">{{ drone.typ or '–' }}</td>
+                      <td class="text-muted font-monospace small">{{ drone.seriennummer or '–' }}</td>
+                      <td class="text-muted font-monospace small">{{ drone.reg_nr or '–' }}</td>
+                      <td class="text-end d-flex gap-1 justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#editDroneModal"
+                                data-id="{{ drone.id }}"
+                                data-name="{{ drone.name }}"
+                                data-brand="{{ drone.brand }}"
+                                data-typ="{{ drone.typ }}"
+                                data-seriennummer="{{ drone.seriennummer }}"
+                                data-reg_nr="{{ drone.reg_nr }}"
+                                data-equip="{{ drone.equipment }}">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <form method="post" class="d-inline"
+                              onsubmit="return confirm('Drohne «{{ drone.name }}» wirklich löschen?')">
+                          <input type="hidden" name="action" value="delete_drone">
+                          <input type="hidden" name="drone_id" value="{{ drone.id }}">
+                          <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="text-muted small">Noch keine Drohnen erfasst.</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Redaktionen -->
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header section-header collapsed d-flex justify-content-between align-items-center"
+           data-bs-toggle="collapse" data-bs-target="#collapseRedaktionen">
+        <span><i class="bi bi-people me-2"></i>Redaktionen</span>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
+      </div>
+      <div class="collapse" id="collapseRedaktionen">
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-lg-4">
+              <h6 class="fw-semibold mb-3">Neue Redaktion erfassen</h6>
+              <form method="post">
+                <input type="hidden" name="action" value="add_redaktion">
+                <div class="mb-3">
+                  <label class="form-label fw-semibold small mb-1">Name *</label>
+                  <input type="text" name="rd_name" class="form-control form-control-sm"
+                         placeholder="z.B. Tagesschau" required>
+                </div>
+                <button type="submit" class="btn btn-srg btn-sm w-100">
+                  <i class="bi bi-plus-circle me-1"></i>Redaktion hinzufügen
+                </button>
+              </form>
+            </div>
+            <div class="col-lg-8">
+              <h6 class="fw-semibold mb-3">Erfasste Redaktionen</h6>
+              {% if redaktionen %}
+              <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr><th>Name</th><th class="text-end"></th></tr>
+                  </thead>
+                  <tbody>
+                    {% for rd in redaktionen %}
+                    <tr>
+                      <td>{{ rd.name }}</td>
+                      <td class="text-end d-flex gap-1 justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#editRdModal"
+                                data-id="{{ rd.id }}" data-name="{{ rd.name }}">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <form method="post" class="d-inline"
+                              onsubmit="return confirm('Redaktion «{{ rd.name }}» wirklich löschen?')">
+                          <input type="hidden" name="action" value="delete_redaktion">
+                          <input type="hidden" name="rd_id" value="{{ rd.id }}">
+                          <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="text-muted small">Noch keine Redaktionen erfasst.</p>
+              {% endif %}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -226,60 +282,64 @@
   <!-- Sendeformate -->
   <div class="col-12">
     <div class="card border-0 shadow-sm">
-      <div class="card-header section-header">
-        <i class="bi bi-tv me-2"></i>Sendeformate
+      <div class="card-header section-header collapsed d-flex justify-content-between align-items-center"
+           data-bs-toggle="collapse" data-bs-target="#collapseSendeformate">
+        <span><i class="bi bi-tv me-2"></i>Sendeformate</span>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
       </div>
-      <div class="card-body">
-        <div class="row g-4">
-          <div class="col-lg-4">
-            <h6 class="fw-semibold mb-3">Neues Sendeformat erfassen</h6>
-            <form method="post">
-              <input type="hidden" name="action" value="add_sendeformat">
-              <div class="mb-3">
-                <label class="form-label fw-semibold small mb-1">Name *</label>
-                <input type="text" name="sf_name" class="form-control form-control-sm"
-                       placeholder="z.B. SRF 3" required>
-              </div>
-              <button type="submit" class="btn btn-srg btn-sm w-100">
-                <i class="bi bi-plus-circle me-1"></i>Sendeformat hinzufügen
-              </button>
-            </form>
-          </div>
-          <div class="col-lg-8">
-            <h6 class="fw-semibold mb-3">Erfasste Sendeformate</h6>
-            {% if sendeformate %}
-            <div class="table-responsive">
-              <table class="table table-sm table-hover align-middle mb-0">
-                <thead class="table-light">
-                  <tr><th>Name</th><th class="text-end"></th></tr>
-                </thead>
-                <tbody>
-                  {% for sf in sendeformate %}
-                  <tr>
-                    <td>{{ sf.name }}</td>
-                    <td class="text-end d-flex gap-1 justify-content-end">
-                      <button type="button" class="btn btn-outline-secondary btn-sm"
-                              data-bs-toggle="modal" data-bs-target="#editSfModal"
-                              data-id="{{ sf.id }}" data-name="{{ sf.name }}">
-                        <i class="bi bi-pencil"></i>
-                      </button>
-                      <form method="post" class="d-inline"
-                            onsubmit="return confirm('Sendeformat «{{ sf.name }}» wirklich löschen?')">
-                        <input type="hidden" name="action" value="delete_sendeformat">
-                        <input type="hidden" name="sf_id" value="{{ sf.id }}">
-                        <button type="submit" class="btn btn-outline-danger btn-sm">
-                          <i class="bi bi-trash"></i>
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+      <div class="collapse" id="collapseSendeformate">
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-lg-4">
+              <h6 class="fw-semibold mb-3">Neues Sendeformat erfassen</h6>
+              <form method="post">
+                <input type="hidden" name="action" value="add_sendeformat">
+                <div class="mb-3">
+                  <label class="form-label fw-semibold small mb-1">Name *</label>
+                  <input type="text" name="sf_name" class="form-control form-control-sm"
+                         placeholder="z.B. SRF 3" required>
+                </div>
+                <button type="submit" class="btn btn-srg btn-sm w-100">
+                  <i class="bi bi-plus-circle me-1"></i>Sendeformat hinzufügen
+                </button>
+              </form>
             </div>
-            {% else %}
-            <p class="text-muted small">Noch keine Sendeformate erfasst.</p>
-            {% endif %}
+            <div class="col-lg-8">
+              <h6 class="fw-semibold mb-3">Erfasste Sendeformate</h6>
+              {% if sendeformate %}
+              <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr><th>Name</th><th class="text-end"></th></tr>
+                  </thead>
+                  <tbody>
+                    {% for sf in sendeformate %}
+                    <tr>
+                      <td>{{ sf.name }}</td>
+                      <td class="text-end d-flex gap-1 justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#editSfModal"
+                                data-id="{{ sf.id }}" data-name="{{ sf.name }}">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <form method="post" class="d-inline"
+                              onsubmit="return confirm('Sendeformat «{{ sf.name }}» wirklich löschen?')">
+                          <input type="hidden" name="action" value="delete_sendeformat">
+                          <input type="hidden" name="sf_id" value="{{ sf.id }}">
+                          <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="text-muted small">Noch keine Sendeformate erfasst.</p>
+              {% endif %}
+            </div>
           </div>
         </div>
       </div>
@@ -289,176 +349,233 @@
   <!-- Verwendungszwecke -->
   <div class="col-12">
     <div class="card border-0 shadow-sm">
-      <div class="card-header section-header">
-        <i class="bi bi-camera-video me-2"></i>Verwendungszwecke
+      <div class="card-header section-header collapsed d-flex justify-content-between align-items-center"
+           data-bs-toggle="collapse" data-bs-target="#collapseVerwendung">
+        <span><i class="bi bi-camera-video me-2"></i>Verwendungszwecke</span>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
       </div>
-      <div class="card-body">
-        <div class="row g-4">
-          <div class="col-lg-4">
-            <h6 class="fw-semibold mb-3">Neuen Verwendungszweck erfassen</h6>
-            <form method="post">
-              <input type="hidden" name="action" value="add_verwendungszweck">
-              <div class="mb-3">
-                <label class="form-label fw-semibold small mb-1">Name *</label>
-                <input type="text" name="vz_name" class="form-control form-control-sm"
-                       placeholder="z.B. Sportaufnahme" required>
-              </div>
-              <button type="submit" class="btn btn-srg btn-sm w-100">
-                <i class="bi bi-plus-circle me-1"></i>Verwendungszweck hinzufügen
-              </button>
-            </form>
-          </div>
-          <div class="col-lg-8">
-            <h6 class="fw-semibold mb-3">Erfasste Verwendungszwecke</h6>
-            {% if verwendungszwecke %}
-            <div class="table-responsive">
-              <table class="table table-sm table-hover align-middle mb-0">
-                <thead class="table-light">
-                  <tr><th>Name</th><th class="text-end"></th></tr>
-                </thead>
-                <tbody>
-                  {% for vz in verwendungszwecke %}
-                  <tr>
-                    <td>{{ vz.name }}</td>
-                    <td class="text-end d-flex gap-1 justify-content-end">
-                      <button type="button" class="btn btn-outline-secondary btn-sm"
-                              data-bs-toggle="modal" data-bs-target="#editVzModal"
-                              data-id="{{ vz.id }}" data-name="{{ vz.name }}">
-                        <i class="bi bi-pencil"></i>
-                      </button>
-                      <form method="post" class="d-inline"
-                            onsubmit="return confirm('Verwendungszweck «{{ vz.name }}» wirklich löschen?')">
-                        <input type="hidden" name="action" value="delete_verwendungszweck">
-                        <input type="hidden" name="vz_id" value="{{ vz.id }}">
-                        <button type="submit" class="btn btn-outline-danger btn-sm">
-                          <i class="bi bi-trash"></i>
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+      <div class="collapse" id="collapseVerwendung">
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-lg-4">
+              <h6 class="fw-semibold mb-3">Neuen Verwendungszweck erfassen</h6>
+              <form method="post">
+                <input type="hidden" name="action" value="add_verwendungszweck">
+                <div class="mb-3">
+                  <label class="form-label fw-semibold small mb-1">Name *</label>
+                  <input type="text" name="vz_name" class="form-control form-control-sm"
+                         placeholder="z.B. Sportaufnahme" required>
+                </div>
+                <button type="submit" class="btn btn-srg btn-sm w-100">
+                  <i class="bi bi-plus-circle me-1"></i>Verwendungszweck hinzufügen
+                </button>
+              </form>
             </div>
-            {% else %}
-            <p class="text-muted small">Noch keine Verwendungszwecke erfasst.</p>
-            {% endif %}
+            <div class="col-lg-8">
+              <h6 class="fw-semibold mb-3">Erfasste Verwendungszwecke</h6>
+              {% if verwendungszwecke %}
+              <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr><th>Name</th><th class="text-end"></th></tr>
+                  </thead>
+                  <tbody>
+                    {% for vz in verwendungszwecke %}
+                    <tr>
+                      <td>{{ vz.name }}</td>
+                      <td class="text-end d-flex gap-1 justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#editVzModal"
+                                data-id="{{ vz.id }}" data-name="{{ vz.name }}">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <form method="post" class="d-inline"
+                              onsubmit="return confirm('Verwendungszweck «{{ vz.name }}» wirklich löschen?')">
+                          <input type="hidden" name="action" value="delete_verwendungszweck">
+                          <input type="hidden" name="vz_id" value="{{ vz.id }}">
+                          <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="text-muted small">Noch keine Verwendungszwecke erfasst.</p>
+              {% endif %}
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Drohnenverwaltung -->
+  <!-- E-Mail-Benachrichtigungen -->
   <div class="col-12">
     <div class="card border-0 shadow-sm">
-      <div class="card-header section-header">
-        <i class="bi bi-airplane me-2"></i>Drohnenverwaltung
+      <div class="card-header section-header collapsed d-flex justify-content-between align-items-center"
+           data-bs-toggle="collapse" data-bs-target="#collapseNotify">
+        <span><i class="bi bi-bell me-2"></i>E-Mail-Benachrichtigungen</span>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
       </div>
-      <div class="card-body">
-        <div class="row g-4">
-
-          <!-- Neue Drohne -->
-          <div class="col-lg-4">
-            <h6 class="fw-semibold mb-3">Neue Drohne erfassen</h6>
-            <form method="post">
-              <input type="hidden" name="action" value="add_drone">
-              <div class="mb-2">
-                <label class="form-label fw-semibold small mb-1">Name *</label>
-                <input type="text" name="drone_name" class="form-control form-control-sm"
-                       placeholder="z.B. DJI Mavic 3" required>
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold small mb-1">Marke</label>
-                <input type="text" name="drone_brand" class="form-control form-control-sm"
-                       placeholder="z.B. DJI">
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold small mb-1">Typ</label>
-                <input type="text" name="drone_typ" class="form-control form-control-sm"
-                       placeholder="z.B. Mavic 3 Enterprise">
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold small mb-1">Seriennummer</label>
-                <input type="text" name="drone_seriennummer" class="form-control form-control-sm"
-                       placeholder="z.B. 1ZNBJ1A001234">
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold small mb-1">Reg.-Nr. (eID)</label>
-                <input type="text" name="drone_reg_nr" class="form-control form-control-sm"
-                       placeholder="z.B. CHE-XXXX">
-              </div>
-              <div class="mb-3">
-                <label class="form-label fw-semibold small mb-1">Spez. Ausstattung</label>
-                <input type="text" name="drone_equipment" class="form-control form-control-sm"
-                       placeholder="z.B. Wärmebildkamera">
-              </div>
-              <button type="submit" class="btn btn-srg btn-sm w-100">
-                <i class="bi bi-plus-circle me-1"></i>Drohne hinzufügen
-              </button>
-            </form>
-          </div>
-
-          <!-- Drohnenliste -->
-          <div class="col-lg-8">
-            <h6 class="fw-semibold mb-3">Erfasste Drohnen</h6>
-            {% if drones %}
-            <div class="table-responsive">
-              <table class="table table-sm table-hover align-middle mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th>Name</th>
-                    <th>Marke</th>
-                    <th>Typ</th>
-                    <th>Seriennummer</th>
-                    <th>Reg.-Nr. (eID)</th>
-                    <th class="text-end"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for drone in drones %}
-                  <tr>
-                    <td class="fw-semibold">{{ drone.name }}</td>
-                    <td class="text-muted small">{{ drone.brand or '–' }}</td>
-                    <td class="text-muted">{{ drone.typ or '–' }}</td>
-                    <td class="text-muted font-monospace small">{{ drone.seriennummer or '–' }}</td>
-                    <td class="text-muted font-monospace small">{{ drone.reg_nr or '–' }}</td>
-                    <td class="text-end d-flex gap-1 justify-content-end">
-                      <button type="button" class="btn btn-outline-secondary btn-sm"
-                              data-bs-toggle="modal" data-bs-target="#editDroneModal"
-                              data-id="{{ drone.id }}"
-                              data-name="{{ drone.name }}"
-                              data-brand="{{ drone.brand }}"
-                              data-typ="{{ drone.typ }}"
-                              data-seriennummer="{{ drone.seriennummer }}"
-                              data-reg_nr="{{ drone.reg_nr }}"
-                              data-equip="{{ drone.equipment }}">
-                        <i class="bi bi-pencil"></i>
-                      </button>
-                      <form method="post" class="d-inline"
-                            onsubmit="return confirm('Drohne «{{ drone.name }}» wirklich löschen?')">
-                        <input type="hidden" name="action" value="delete_drone">
-                        <input type="hidden" name="drone_id" value="{{ drone.id }}">
-                        <button type="submit" class="btn btn-outline-danger btn-sm">
-                          <i class="bi bi-trash"></i>
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+      <div class="collapse" id="collapseNotify">
+        <div class="card-body">
+          <form method="post">
+            <input type="hidden" name="action" value="save_notifications">
+            <div class="mb-2">
+              <label class="form-label fw-semibold">Feedback-Empfängeradresse</label>
+              <input type="email" name="feedback_email" class="form-control"
+                     value="{{ notify.feedback_email }}" placeholder="feedback@dronenerds.ch">
+              <div class="form-text">Empfänger für Nachrichten aus der Feedback-Funktion.</div>
             </div>
-            {% else %}
-            <p class="text-muted small">Noch keine Drohnen erfasst.</p>
-            {% endif %}
-          </div>
-
+            <div class="mb-2">
+              <label class="form-label fw-semibold">Admin-/Registrierungsadresse</label>
+              <input type="email" name="admin_email" class="form-control"
+                     value="{{ notify.admin_email }}" placeholder="info@dronenerds.ch">
+              <div class="form-text">Erhält bei jeder neuen Registrierung eine Mail mit Direkt-Freischalt-Link.</div>
+            </div>
+            <button type="submit" class="btn btn-srg w-100 mt-2">
+              <i class="bi bi-floppy me-1"></i>Benachrichtigungen speichern
+            </button>
+          </form>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- E-Mail / SMTP-Konfiguration -->
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header section-header collapsed d-flex justify-content-between align-items-center"
+           data-bs-toggle="collapse" data-bs-target="#collapseSMTP">
+        <span><i class="bi bi-envelope-at me-2"></i>E-Mail / SMTP-Konfiguration</span>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
+      </div>
+      <div class="collapse" id="collapseSMTP">
+        <div class="card-body">
+          <p class="text-muted small mb-3">
+            Das ausgefüllte PDF wird an <strong>drohnen@srf.ch</strong> und <strong>eng-service@srf.ch</strong>
+            gesendet. Konfigurieren Sie hier den SMTP-Server für den Versand.
+          </p>
+          <form method="post">
+            <input type="hidden" name="action" value="save_smtp">
+            <div class="row g-3">
+              <div class="col-8">
+                <label class="form-label fw-semibold">SMTP-Host</label>
+                <input type="text" name="smtp_host" class="form-control"
+                       value="{{ smtp.smtp_host }}" placeholder="z.B. smtp.srf.ch">
+              </div>
+              <div class="col-4">
+                <label class="form-label fw-semibold">Port</label>
+                <input type="number" name="smtp_port" class="form-control"
+                       value="{{ smtp.smtp_port or '587' }}" placeholder="587">
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-semibold">Absender-Adresse</label>
+                <input type="email" name="smtp_from" class="form-control"
+                       value="{{ smtp.smtp_from }}" placeholder="drohnen-tool@srf.ch">
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold">Benutzername</label>
+                <input type="text" name="smtp_user" class="form-control"
+                       value="{{ smtp.smtp_user }}" placeholder="Benutzername">
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold">Passwort</label>
+                <input type="password" name="smtp_pass" class="form-control"
+                       value="{{ smtp.smtp_pass }}" placeholder="••••••••">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-srg w-100 mt-3">
+              <i class="bi bi-floppy me-1"></i>SMTP speichern
+            </button>
+          </form>
+          {% if not smtp.smtp_host %}
+          <div class="alert alert-warning py-2 mt-3 mb-0">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            SMTP nicht konfiguriert – E-Mail-Versand deaktiviert.
+          </div>
+          {% else %}
+          <div class="alert alert-success py-2 mt-3 mb-0">
+            <i class="bi bi-check-circle me-1"></i>
+            SMTP konfiguriert: <code>{{ smtp.smtp_host }}:{{ smtp.smtp_port or 587 }}</code>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test-Modus -->
+  <div class="col-12">
+    <div class="card border-0 shadow-sm {% if test.test_mode %}border-warning border-2{% endif %}">
+      <div class="card-header section-header collapsed d-flex justify-content-between align-items-center"
+           data-bs-toggle="collapse" data-bs-target="#collapseTest">
+        <span><i class="bi bi-cone-striped me-2"></i>Test-Modus</span>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
+      </div>
+      <div class="collapse" id="collapseTest">
+        <div class="card-body">
+          <form method="post">
+            <input type="hidden" name="action" value="save_testmode">
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" role="switch" name="test_mode" id="testModeSwitch"
+                     {% if test.test_mode %}checked{% endif %}>
+              <label class="form-check-label fw-semibold" for="testModeSwitch">Test-Modus aktiv</label>
+            </div>
+            <p class="text-muted small">
+              Bei aktivem Test-Modus gehen alle Protokoll-Mails ausschliesslich an die Testadresse
+              (Betreff mit <code>[TEST]</code>), und nur Administratoren können sich anmelden.
+            </p>
+            <div class="mb-2">
+              <label class="form-label fw-semibold">Test-Empfängeradresse</label>
+              <input type="email" name="test_email" class="form-control"
+                     value="{{ test.test_email }}" placeholder="test@dronenerds.ch">
+            </div>
+            <button type="submit" class="btn btn-srg w-100 mt-2">
+              <i class="bi bi-floppy me-1"></i>Test-Modus speichern
+            </button>
+          </form>
+          {% if test.test_mode %}
+          <div class="alert alert-warning py-2 mt-3 mb-0">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Test-Modus ist <strong>aktiv</strong> – normale Nutzer sind ausgesperrt.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit-Redaktion Modal -->
+<div class="modal fade" id="editRdModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Redaktion bearbeiten</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post">
+        <input type="hidden" name="action" value="edit_redaktion">
+        <input type="hidden" name="rd_id" id="editRdId">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Name *</label>
+            <input type="text" name="rd_name" id="editRdName" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="submit" class="btn btn-srg"><i class="bi bi-floppy me-1"></i>Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <!-- Edit-Sendeformat Modal -->
@@ -564,6 +681,12 @@
 
 {% block scripts %}
 <script>
+document.getElementById('editRdModal')?.addEventListener('show.bs.modal', function(e) {
+  const btn = e.relatedTarget;
+  document.getElementById('editRdId').value   = btn.dataset.id;
+  document.getElementById('editRdName').value = btn.dataset.name;
+});
+
 document.getElementById('editSfModal')?.addEventListener('show.bs.modal', function(e) {
   const btn = e.relatedTarget;
   document.getElementById('editSfId').value   = btn.dataset.id;

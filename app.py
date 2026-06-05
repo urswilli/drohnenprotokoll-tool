@@ -177,6 +177,11 @@ VERWENDUNGSZWECKE = [
     'Anderes',
 ]
 
+REDAKTIONEN = [
+    'Tagesschau', '10 vor 10', 'DOK', 'SRF News', 'SRF Sport',
+    'SRF bi de Lüt', 'Schweizer Helden', 'SRF Kultur', 'Sonstige',
+]
+
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -238,6 +243,10 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE
             );
+            CREATE TABLE IF NOT EXISTS redaktionen (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
             CREATE TABLE IF NOT EXISTS drone_holders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
@@ -292,6 +301,9 @@ def init_db():
         if conn.execute('SELECT COUNT(*) FROM verwendungszwecke').fetchone()[0] == 0:
             conn.executemany('INSERT OR IGNORE INTO verwendungszwecke(name) VALUES(?)',
                              [(v,) for v in VERWENDUNGSZWECKE])
+        if conn.execute('SELECT COUNT(*) FROM redaktionen').fetchone()[0] == 0:
+            conn.executemany('INSERT OR IGNORE INTO redaktionen(name) VALUES(?)',
+                             [(r,) for r in REDAKTIONEN])
         # SRG-Systemhalter (nicht löschbar, user_id=NULL)
         conn.execute("""INSERT OR IGNORE INTO drone_holders(id, user_id, name, address)
             VALUES(1, NULL, 'Schweizer Radio und Fernsehen (SRF)', 'Fernsehstrasse 1-4\n8052 Zürich')""")
@@ -815,6 +827,7 @@ def index():
         drones = conn.execute('SELECT * FROM drones ORDER BY name').fetchall()
         sendeformate = [r['name'] for r in conn.execute('SELECT name FROM sendeformate ORDER BY id').fetchall()]
         verwendungszwecke = [r['name'] for r in conn.execute('SELECT name FROM verwendungszwecke ORDER BY id').fetchall()]
+        redaktionen = [r['name'] for r in conn.execute('SELECT name FROM redaktionen ORDER BY id').fetchall()]
     today = date.today().strftime('%Y/%m/%d')
     return render_template('form.html',
                            profile=profile,
@@ -825,7 +838,8 @@ def index():
                            today=today,
                            checklist=CHECKLIST_ITEMS,
                            sendeformate=sendeformate,
-                           verwendungszwecke=verwendungszwecke)
+                           verwendungszwecke=verwendungszwecke,
+                           redaktionen=redaktionen)
 
 
 @app.route('/submit', methods=['POST'])
@@ -855,6 +869,11 @@ def submit():
     if sf:
         with get_db() as conn:
             conn.execute('INSERT OR IGNORE INTO sendeformate(name) VALUES(?)', (sf,))
+            conn.commit()
+    rd = form_data.get('redaktion', '').strip()
+    if rd:
+        with get_db() as conn:
+            conn.execute('INSERT OR IGNORE INTO redaktionen(name) VALUES(?)', (rd,))
             conn.commit()
 
     email_sent = False
@@ -1263,6 +1282,37 @@ def admin():
                 conn.commit()
             flash('Verwendungszweck gelöscht.', 'success')
 
+        elif action == 'add_redaktion':
+            name = request.form.get('rd_name', '').strip()
+            if name:
+                with get_db() as conn:
+                    try:
+                        conn.execute('INSERT INTO redaktionen(name) VALUES(?)', (name,))
+                        conn.commit()
+                        flash('Redaktion hinzugefügt.', 'success')
+                    except Exception:
+                        flash('Redaktion bereits vorhanden.', 'danger')
+            else:
+                flash('Name ist erforderlich.', 'danger')
+
+        elif action == 'edit_redaktion':
+            rdid = request.form.get('rd_id')
+            name = request.form.get('rd_name', '').strip()
+            if name:
+                with get_db() as conn:
+                    conn.execute('UPDATE redaktionen SET name=? WHERE id=?', (name, rdid))
+                    conn.commit()
+                flash('Redaktion aktualisiert.', 'success')
+            else:
+                flash('Name ist erforderlich.', 'danger')
+
+        elif action == 'delete_redaktion':
+            rdid = request.form.get('rd_id')
+            with get_db() as conn:
+                conn.execute('DELETE FROM redaktionen WHERE id=?', (rdid,))
+                conn.commit()
+            flash('Redaktion gelöscht.', 'success')
+
         return redirect(url_for('admin'))
 
     with get_db() as conn:
@@ -1275,6 +1325,7 @@ def admin():
         drones = conn.execute('SELECT * FROM drones ORDER BY name').fetchall()
         sendeformate = conn.execute('SELECT * FROM sendeformate ORDER BY id').fetchall()
         verwendungszwecke = conn.execute('SELECT * FROM verwendungszwecke ORDER BY id').fetchall()
+        redaktionen = conn.execute('SELECT * FROM redaktionen ORDER BY id').fetchall()
     smtp_settings = {k: get_setting(k) for k in ['smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from']}
     test_settings = {
         'test_mode': test_mode_on(),
@@ -1286,7 +1337,8 @@ def admin():
     }
     return render_template('admin.html', users=users, pending=pending, smtp=smtp_settings,
                            test=test_settings, notify=notify_settings, drones=drones,
-                           sendeformate=sendeformate, verwendungszwecke=verwendungszwecke)
+                           sendeformate=sendeformate, verwendungszwecke=verwendungszwecke,
+                           redaktionen=redaktionen)
 
 
 # Initialisierung beim Start (sowohl via Gunicorn als auch python3 app.py)

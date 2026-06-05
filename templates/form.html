@@ -106,8 +106,16 @@
     <div class="row g-3">
       <div class="col-md-4">
         <label class="form-label fw-semibold">Redaktion <span class="text-danger">*</span></label>
-        <input type="text" name="redaktion" class="form-control" required
-               placeholder="z.B. DOK, Tagesschau, SRF News">
+        <div class="input-group">
+          <select class="form-select" id="redaktionSelect">
+            <option value="">– Redaktion wählen –</option>
+            {% for rd in redaktionen %}
+            <option value="{{ rd }}">{{ rd }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="redaktion" id="redaktion" class="form-control"
+                 placeholder="oder Freitext…" required>
+        </div>
       </div>
       <div class="col-md-4">
         <label class="form-label fw-semibold">SRG-UE</label>
@@ -328,7 +336,6 @@
         <label class="form-label fw-semibold">Flugminuten gesamt</label>
         <input type="number" name="flugminuten" id="flugminuten" class="form-control" min="0"
                placeholder="z.B. 45">
-        <div class="form-text">Wird automatisch berechnet.</div>
       </div>
       <div class="col-6 col-md-3">
         <label class="form-label fw-semibold">Anzahl Flüge</label>
@@ -528,6 +535,11 @@ document.getElementById('sendeformatSelect')?.addEventListener('change', functio
   if (this.value) setVal(document.getElementById('sendeformat'), this.value);
 });
 
+// Auto-fill redaktion from dropdown
+document.getElementById('redaktionSelect')?.addEventListener('change', function() {
+  if (this.value) setVal(document.getElementById('redaktion'), this.value);
+});
+
 // ── Drohnenhalter-Dropdown ─────────────────────────────────────────────────
 const holderSelect = document.getElementById('holderSelect');
 
@@ -560,14 +572,18 @@ function updateHolder() {
 function filterDrones(hid) {
   const sel = document.getElementById('droneSelect');
   if (!sel) return;
-  // Eigene Drohnen: nur zeigen wenn holder-id enthalten
+  const isSRF = (String(hid) === '1');
+  // Eigene Drohnen: nur zeigen wenn holder-id enthalten UND nicht SRF-Halter
   sel.querySelectorAll('option[data-holder-ids]').forEach(opt => {
     const ids = (opt.dataset.holderIds || '').split(',').map(s => s.trim());
-    opt.hidden = !ids.includes(String(hid));
+    opt.hidden = isSRF || !ids.includes(String(hid));
   });
+  // "Meine Drohnen"-Gruppe bei SRF-Halter verbergen
+  const myGroup = document.getElementById('myDronesGroup');
+  if (myGroup) myGroup.hidden = isSRF;
   // SRG-Optgroup nur bei holder_id=1 (SRG)
   const srgGroup = document.getElementById('srgDronesGroup');
-  if (srgGroup) srgGroup.hidden = (String(hid) !== '1');
+  if (srgGroup) srgGroup.hidden = !isSRF;
   // Aktuelle Auswahl zurücksetzen falls versteckt
   if (sel.selectedIndex > 0 && sel.options[sel.selectedIndex]?.hidden) {
     sel.value = '';
@@ -618,13 +634,29 @@ function syncEva() {
 }
 ['evaSignatureName','evaSignatureEmail'].forEach(id => {
   document.getElementById(id)?.addEventListener('input', function(e) {
-    // Nur echte Nutzereingaben sperren die Auto-Übernahme – synthetische
-    // input-Events aus setVal()/syncEva() haben isTrusted === false.
     if (e.isTrusted) this.dataset.manuallyEdited = 'true';
   });
 });
-document.getElementById('evaName')?.addEventListener('input', syncEva);
-document.getElementById('evaEmail')?.addEventListener('input', syncEva);
+
+// EVA-E-Mail automatisch aus Name generieren (vorname.nachname@srf.ch)
+var evaEmailManuallyEdited = false;
+document.getElementById('evaEmail')?.addEventListener('input', function(e) {
+  if (e.isTrusted) evaEmailManuallyEdited = true;
+  syncEva();
+});
+document.getElementById('evaName')?.addEventListener('input', function() {
+  if (!evaEmailManuallyEdited) {
+    const parts = this.value.trim().split(/\s+/);
+    const emailEl = document.getElementById('evaEmail');
+    if (emailEl) {
+      const email = parts.length >= 2
+        ? parts[0].toLowerCase() + '.' + parts.slice(1).join('.').toLowerCase() + '@srf.ch'
+        : '';
+      setVal(emailEl, email);
+    }
+  }
+  syncEva();
+});
 syncEva();
 
 // Empty field highlighting (alle Eingaben ausser Hidden/Checkbox/Readonly/Button)

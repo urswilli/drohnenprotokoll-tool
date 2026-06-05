@@ -60,3 +60,13 @@ body.login-bg { background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%); }
   border-color: #f59e0b !important;
   background-color: #fffbeb !important;
 }
+
+/* ── Collapsible admin section headers ── */
+.section-header[data-bs-toggle="collapse"] { cursor: pointer; user-select: none; }
+.section-header[data-bs-toggle="collapse"] .collapse-chevron {
+  transition: transform 0.2s;
+  transform: rotate(-90deg);
+}
+.section-header[data-bs-toggle="collapse"]:not(.collapsed) .collapse-chevron {
+  transform: rotate(0deg);
+}
