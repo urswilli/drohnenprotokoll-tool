@@ -825,9 +825,9 @@ def index():
             'JOIN aircraft a ON a.id = ahm.aircraft_id WHERE a.user_id=?', (user_id,)):
             aircraft_holder_ids.setdefault(row['aircraft_id'], []).append(row['holder_id'])
         drones = conn.execute('SELECT * FROM drones ORDER BY name').fetchall()
-        sendeformate = [r['name'] for r in conn.execute('SELECT name FROM sendeformate ORDER BY id').fetchall()]
+        sendeformate = [r['name'] for r in conn.execute('SELECT name FROM sendeformate ORDER BY name COLLATE NOCASE').fetchall()]
         verwendungszwecke = [r['name'] for r in conn.execute('SELECT name FROM verwendungszwecke ORDER BY id').fetchall()]
-        redaktionen = [r['name'] for r in conn.execute('SELECT name FROM redaktionen ORDER BY id').fetchall()]
+        redaktionen = [r['name'] for r in conn.execute('SELECT name FROM redaktionen ORDER BY name COLLATE NOCASE').fetchall()]
     today = date.today().strftime('%Y/%m/%d')
     return render_template('form.html',
                            profile=profile,
@@ -1325,9 +1325,9 @@ def admin():
             'FROM users u LEFT JOIN profiles p ON u.id = p.user_id '
             'WHERE u.is_approved=0').fetchall()
         drones = conn.execute('SELECT * FROM drones ORDER BY name').fetchall()
-        sendeformate = conn.execute('SELECT * FROM sendeformate ORDER BY id').fetchall()
+        sendeformate = conn.execute('SELECT * FROM sendeformate ORDER BY name COLLATE NOCASE').fetchall()
         verwendungszwecke = conn.execute('SELECT * FROM verwendungszwecke ORDER BY id').fetchall()
-        redaktionen = conn.execute('SELECT * FROM redaktionen ORDER BY id').fetchall()
+        redaktionen = conn.execute('SELECT * FROM redaktionen ORDER BY name COLLATE NOCASE').fetchall()
     smtp_settings = {k: get_setting(k) for k in ['smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from']}
     test_settings = {
         'test_mode': test_mode_on(),

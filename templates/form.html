@@ -117,11 +117,11 @@
                  placeholder="oder Freitext…" required>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-2">
         <label class="form-label fw-semibold">SRG-UE</label>
-        <input type="text" name="srg_ue" class="form-control" value="SRF" placeholder="z.B. SRF, RTS, RSI">
+        <input type="text" name="srg_ue" class="form-control" value="SRF" placeholder="SRF">
       </div>
-      <div class="col-md-4">
+      <div class="col-md-6">
         <label class="form-label fw-semibold">Name Einsatzverantwortliche/r</label>
         <input type="text" name="eva_name" id="evaName" class="form-control" placeholder="Vorname Nachname">
       </div>
@@ -550,6 +550,11 @@ const holderData = {
   {% endfor %}
 };
 
+// Firmenzugehörigkeit auto-fill: nicht überschreiben wenn manuell bearbeitet
+const pilotCompanyEl = document.querySelector('[name="pilot_company"]');
+let pilotCompanyManual = !!(pilotCompanyEl && pilotCompanyEl.value.trim());
+pilotCompanyEl?.addEventListener('input', function(e) { if (e.isTrusted) pilotCompanyManual = true; });
+
 function updateHolder() {
   const hid = holderSelect ? holderSelect.value : String(Object.keys(holderData)[0] || '1');
   const data = holderData[hid] || Object.values(holderData)[0] || {};
@@ -559,6 +564,7 @@ function updateHolder() {
   document.getElementById('holderAddressDisplay').value = address;
   document.getElementById('holderCompanyHidden').value  = company;
   document.getElementById('holderAddressHidden').value  = address;
+  if (pilotCompanyEl && !pilotCompanyManual) setVal(pilotCompanyEl, company);
   filterDrones(hid);
   const isSRF = (String(hid) === '1');
   ['rcptEngService', 'rcptDrohnen', 'rcptCcEva'].forEach(function(id) {
