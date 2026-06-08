@@ -516,7 +516,11 @@
   </div>
 </div>
 
-<!-- Map-Picker Modal -->
+</form>
+{% endblock %}
+
+{% block modals %}
+<!-- Map-Picker Modal – direktes body-Kind für korrekte position:fixed-Positionierung -->
 <div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
@@ -525,7 +529,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
       </div>
       <div class="modal-body p-0">
-        <div id="mapContainer" style="height:420px; overflow:hidden; position:relative;"></div>
+        <div id="mapContainer" style="height:420px;"></div>
         <div class="p-2 d-flex align-items-center gap-2 border-top bg-light">
           <button type="button" class="btn btn-outline-secondary btn-sm" id="btnMapLocate">
             <i class="bi bi-geo-alt-fill me-1"></i>Aktueller Standort
@@ -542,8 +546,6 @@
     </div>
   </div>
 </div>
-
-</form>
 {% endblock %}
 
 {% block scripts %}
@@ -721,7 +723,12 @@ syncEva();
   // Karte in shown.bs.modal initialisieren: Container ist display:block und hat korrekte Dimensionen
   _mapModalEl.addEventListener('shown.bs.modal', function() {
     if (!_map) {
-      _map = L.map('mapContainer').setView([46.8182, 8.2275], 8);
+      // Animationen deaktivieren: verhindert CSS-Transform-Interferenz mit Bootstrap-Modal
+      _map = L.map('mapContainer', {
+        zoomAnimation: false,
+        fadeAnimation: false,
+        markerZoomAnimation: false
+      }).setView([46.8182, 8.2275], 8);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -734,16 +741,12 @@ syncEva();
           _selLat.toFixed(5) + ', ' + _selLon.toFixed(5);
         document.getElementById('btnMapApply').disabled = false;
       });
-    } else {
-      _map.invalidateSize(true);
     }
-    // setTimeout(0): nächster Macrotask, nachdem der Browser das Layout vollständig
-    // abgeschlossen hat. Danach setView() → erzwingt Neuberechnung von _pixelOrigin
-    // und lädt alle Tiles mit korrekten Koordinaten (behebt Flickenteppich-Bug).
+    // Nach 300ms: Layout vollständig stabil → korrektes invalidateSize + setView
     setTimeout(function() {
-      _map.invalidateSize(true);
+      _map.invalidateSize();
       _map.setView(_map.getCenter(), _map.getZoom(), { animate: false });
-    }, 0);
+    }, 300);
   });
 
   document.getElementById('btnMapLocate')?.addEventListener('click', function() {
