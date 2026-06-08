@@ -537,7 +537,7 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
         <button type="button" class="btn btn-srg" id="btnMapApply" disabled>
-          <i class="bi bi-check-circle me-1"></i>Übernehmen &amp; Wetter laden
+          <i class="bi bi-check-circle me-1"></i>Übernehmen
         </button>
       </div>
     </div>
@@ -719,10 +719,12 @@ syncEva();
   const _mapModalEl = document.getElementById('mapModal');
   if (!_mapModalEl) return;
 
-  _mapModalEl.addEventListener('shown.bs.modal', function() {
+  // Karte beim Start der Modal-Transition initialisieren (Container hat bereits Dimensionen)
+  _mapModalEl.addEventListener('show.bs.modal', function() {
     if (!_map) {
       _map = L.map('mapContainer').setView([46.8182, 8.2275], 8);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(_map);
       _map.on('click', function(e) {
@@ -734,7 +736,11 @@ syncEva();
         document.getElementById('btnMapApply').disabled = false;
       });
     }
-    setTimeout(function() { _map.invalidateSize(); }, 50);
+  });
+
+  // Nach abgeschlossener Transition: Grösse korrigieren
+  _mapModalEl.addEventListener('shown.bs.modal', function() {
+    _map.invalidateSize(true);
   });
 
   document.getElementById('btnMapLocate')?.addEventListener('click', function() {
@@ -760,13 +766,12 @@ syncEva();
       setField('koordinaten', data.coordinates || '');
       setField('ort_eva',   data.location_short || data.location || '');
       setField('ort_pilot', data.location_short || data.location || '');
-      setTextarea('wetterlage', data.weather || '');
       bootstrap.Modal.getInstance(_mapModalEl).hide();
     } catch(err) {
       alert('Fehler beim Abrufen der Ortsdaten. Bitte erneut versuchen.');
     } finally {
       this.disabled = false;
-      this.innerHTML = '<i class="bi bi-check-circle me-1"></i>Übernehmen &amp; Wetter laden';
+      this.innerHTML = '<i class="bi bi-check-circle me-1"></i>Übernehmen';
     }
   });
 
