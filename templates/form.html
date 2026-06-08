@@ -737,6 +737,13 @@ syncEva();
     } else {
       _map.invalidateSize(true);
     }
+    // setTimeout(0): nächster Macrotask, nachdem der Browser das Layout vollständig
+    // abgeschlossen hat. Danach setView() → erzwingt Neuberechnung von _pixelOrigin
+    // und lädt alle Tiles mit korrekten Koordinaten (behebt Flickenteppich-Bug).
+    setTimeout(function() {
+      _map.invalidateSize(true);
+      _map.setView(_map.getCenter(), _map.getZoom(), { animate: false });
+    }, 0);
   });
 
   document.getElementById('btnMapLocate')?.addEventListener('click', function() {
