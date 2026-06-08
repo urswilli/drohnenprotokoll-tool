@@ -529,7 +529,16 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
       </div>
       <div class="modal-body p-0">
-        <div id="mapContainer" style="height:420px;"></div>
+        <div class="p-2 border-bottom bg-light position-relative">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+            <input type="text" id="mapSearch" class="form-control" placeholder="Adresse, Ort, POI oder Koordinaten (47.5, 8.2)…" autocomplete="off">
+            <button type="button" class="btn btn-outline-secondary" id="btnMapSearch">Suchen</button>
+          </div>
+          <ul id="mapSearchResults" class="list-group position-absolute w-100 shadow-sm d-none"
+              style="top:100%; left:0; z-index:9999; max-height:220px; overflow-y:auto;"></ul>
+        </div>
+        <div id="mapContainer" style="height:380px;"></div>
         <div class="p-2 d-flex align-items-center gap-2 border-top bg-light">
           <button type="button" class="btn btn-outline-secondary btn-sm" id="btnMapLocate">
             <i class="bi bi-geo-alt-fill me-1"></i>Aktueller Standort
@@ -761,6 +770,79 @@ syncEva();
       document.getElementById('btnMapApply').disabled = false;
     }, null, { enableHighAccuracy: true, timeout: 10000 });
   });
+
+  // ── Suche (Nominatim Vorwärts-Geocoding) ────────────────────────────────────
+  const _searchInput  = document.getElementById('mapSearch');
+  const _searchList   = document.getElementById('mapSearchResults');
+
+  function _placeSearchMarker(lat, lon, label) {
+    _selLat = lat; _selLon = lon;
+    _map.setView([lat, lon], 14, { animate: false });
+    if (_marker) _map.removeLayer(_marker);
+    _marker = L.marker([lat, lon]).addTo(_map);
+    document.getElementById('mapCoords').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
+    document.getElementById('btnMapApply').disabled = false;
+    _searchList.classList.add('d-none');
+    _searchList.innerHTML = '';
+    if (_searchInput) _searchInput.value = label;
+  }
+
+  async function _runSearch() {
+    if (!_map) return;
+    const q = (_searchInput?.value || '').trim();
+    if (!q) return;
+    _searchList.classList.add('d-none');
+    _searchList.innerHTML = '';
+
+    // Koordinaten direkt auflösen (z.B. "47.5, 8.2" oder "47.5 8.2")
+    const coordMatch = q.match(/^(-?\d+(?:[.,]\d+)?)[,\s]+(-?\d+(?:[.,]\d+)?)$/);
+    if (coordMatch) {
+      const lat = parseFloat(coordMatch[1].replace(',', '.'));
+      const lon = parseFloat(coordMatch[2].replace(',', '.'));
+      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        _placeSearchMarker(lat, lon, q);
+        return;
+      }
+    }
+
+    // Nominatim-Suche
+    try {
+      const res = await fetch(
+        'https://nominatim.openstreetmap.org/search?format=json&limit=6&q=' + encodeURIComponent(q),
+        { headers: { 'Accept-Language': 'de' } }
+      );
+      const results = await res.json();
+      if (!results.length) {
+        _searchList.innerHTML = '<li class="list-group-item text-muted small py-1 px-2">Keine Ergebnisse</li>';
+        _searchList.classList.remove('d-none');
+        return;
+      }
+      results.forEach(function(r) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item list-group-item-action py-1 px-2 small';
+        li.style.cursor = 'pointer';
+        li.textContent = r.display_name;
+        li.addEventListener('mousedown', function(e) {
+          e.preventDefault(); // blur verhindern bevor click
+          _placeSearchMarker(parseFloat(r.lat), parseFloat(r.lon), r.display_name);
+        });
+        _searchList.appendChild(li);
+      });
+      _searchList.classList.remove('d-none');
+    } catch(err) {
+      _searchList.innerHTML = '<li class="list-group-item text-danger small py-1 px-2">Fehler bei der Suche</li>';
+      _searchList.classList.remove('d-none');
+    }
+  }
+
+  document.getElementById('btnMapSearch')?.addEventListener('click', _runSearch);
+  _searchInput?.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); _runSearch(); }
+  });
+  _searchInput?.addEventListener('blur', function() {
+    setTimeout(function() { _searchList.classList.add('d-none'); }, 150);
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
 
   document.getElementById('btnMapApply')?.addEventListener('click', async function() {
     if (_selLat == null) return;
