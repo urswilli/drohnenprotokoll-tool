@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Drohnenprotokoll ausfüllen{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
+{% endblock %}
+
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
   <div>
@@ -251,6 +255,11 @@
                placeholder="z.B. 47°25'5''N / 8°33'38''O">
         <div class="form-text">Wird automatisch aus GPS ermittelt.</div>
       </div>
+    </div>
+    <div class="mt-3">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="btnMapPicker">
+        <i class="bi bi-map me-1"></i>Ort auf Karte wählen
+      </button>
     </div>
   </div>
 </div>
@@ -507,6 +516,33 @@
   </div>
 </div>
 
+<!-- Map-Picker Modal -->
+<div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="mapModalLabel"><i class="bi bi-map me-2"></i>Drehort auf Karte wählen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div id="mapContainer" style="height:420px"></div>
+        <div class="p-2 d-flex align-items-center gap-2 border-top bg-light">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnMapLocate">
+            <i class="bi bi-geo-alt-fill me-1"></i>Aktueller Standort
+          </button>
+          <span class="text-muted small" id="mapCoords">Karte anklicken oder GPS verwenden</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-srg" id="btnMapApply" disabled>
+          <i class="bi bi-check-circle me-1"></i>Übernehmen &amp; Wetter laden
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </form>
 {% endblock %}
 
@@ -550,9 +586,9 @@ const holderData = {
   {% endfor %}
 };
 
-// Firmenzugehörigkeit auto-fill: nicht überschreiben wenn manuell bearbeitet
+// Firmenzugehörigkeit auto-fill: Halter ist immer Quelle; manuelles Tippen sperrt Overwrite
 const pilotCompanyEl = document.querySelector('[name="pilot_company"]');
-let pilotCompanyManual = !!(pilotCompanyEl && pilotCompanyEl.value.trim());
+let pilotCompanyManual = false;
 pilotCompanyEl?.addEventListener('input', function(e) { if (e.isTrusted) pilotCompanyManual = true; });
 
 function updateHolder() {
@@ -667,6 +703,81 @@ document.getElementById('evaName')?.addEventListener('input', function() {
   syncEva();
 });
 syncEva();
+
+// §4 Ort-Felder: manuelle Eingabe in einem Feld → automatisch ins andere
+['ort_eva', 'ort_pilot'].forEach(function(srcId) {
+  const dstId = srcId === 'ort_eva' ? 'ort_pilot' : 'ort_eva';
+  document.getElementById(srcId)?.addEventListener('input', function(e) {
+    if (e.isTrusted) setVal(document.getElementById(dstId), this.value);
+  });
+});
+
+// ── Map-Picker (Leaflet) ─────────────────────────────────────────────────────
+(function() {
+  const _lfScript = document.createElement('script');
+  _lfScript.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js';
+  document.head.appendChild(_lfScript);
+
+  let _map, _marker, _selLat, _selLon;
+  const _mapModalEl = document.getElementById('mapModal');
+  if (!_mapModalEl) return;
+
+  _mapModalEl.addEventListener('shown.bs.modal', function() {
+    if (!_map) {
+      _map = L.map('mapContainer').setView([47.3769, 8.5417], 8);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(_map);
+      _map.on('click', function(e) {
+        _selLat = e.latlng.lat; _selLon = e.latlng.lng;
+        if (_marker) _map.removeLayer(_marker);
+        _marker = L.marker([_selLat, _selLon]).addTo(_map);
+        document.getElementById('mapCoords').textContent =
+          _selLat.toFixed(5) + ', ' + _selLon.toFixed(5);
+        document.getElementById('btnMapApply').disabled = false;
+      });
+    }
+    _map.invalidateSize();
+  });
+
+  document.getElementById('btnMapLocate')?.addEventListener('click', function() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(function(pos) {
+      _selLat = pos.coords.latitude; _selLon = pos.coords.longitude;
+      _map.setView([_selLat, _selLon], 14);
+      if (_marker) _map.removeLayer(_marker);
+      _marker = L.marker([_selLat, _selLon]).addTo(_map);
+      document.getElementById('mapCoords').textContent =
+        _selLat.toFixed(5) + ', ' + _selLon.toFixed(5);
+      document.getElementById('btnMapApply').disabled = false;
+    }, null, { enableHighAccuracy: true, timeout: 10000 });
+  });
+
+  document.getElementById('btnMapApply')?.addEventListener('click', async function() {
+    if (_selLat == null) return;
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Wird geladen…';
+    try {
+      const data = await fetch('/api/location-data?lat=' + _selLat + '&lon=' + _selLon).then(r => r.json());
+      setField('drehort', data.location || '');
+      setField('koordinaten', data.coordinates || '');
+      setField('ort_eva',   data.location_short || data.location || '');
+      setField('ort_pilot', data.location_short || data.location || '');
+      setTextarea('wetterlage', data.weather || '');
+      bootstrap.Modal.getInstance(_mapModalEl).hide();
+    } catch(err) {
+      alert('Fehler beim Abrufen der Ortsdaten. Bitte erneut versuchen.');
+    } finally {
+      this.disabled = false;
+      this.innerHTML = '<i class="bi bi-check-circle me-1"></i>Übernehmen &amp; Wetter laden';
+    }
+  });
+
+  document.getElementById('btnMapPicker')?.addEventListener('click', function() {
+    bootstrap.Modal.getOrCreateInstance(_mapModalEl).show();
+  });
+})();
+// ────────────────────────────────────────────────────────────────────────────
 
 // Empty field highlighting (alle Eingaben ausser Hidden/Checkbox/Readonly/Button)
 function updateEmptyHighlight(el) {
