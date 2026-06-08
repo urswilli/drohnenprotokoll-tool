@@ -3,7 +3,6 @@
 
 {% block head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -719,8 +718,8 @@ syncEva();
   const _mapModalEl = document.getElementById('mapModal');
   if (!_mapModalEl) return;
 
-  // Karte beim Start der Modal-Transition initialisieren (Container hat bereits Dimensionen)
-  _mapModalEl.addEventListener('show.bs.modal', function() {
+  // Karte in shown.bs.modal initialisieren: Container ist display:block und hat korrekte Dimensionen
+  _mapModalEl.addEventListener('shown.bs.modal', function() {
     if (!_map) {
       _map = L.map('mapContainer').setView([46.8182, 8.2275], 8);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -735,12 +734,9 @@ syncEva();
           _selLat.toFixed(5) + ', ' + _selLon.toFixed(5);
         document.getElementById('btnMapApply').disabled = false;
       });
+    } else {
+      _map.invalidateSize(true);
     }
-  });
-
-  // Nach abgeschlossener Transition: Grösse korrigieren
-  _mapModalEl.addEventListener('shown.bs.modal', function() {
-    _map.invalidateSize(true);
   });
 
   document.getElementById('btnMapLocate')?.addEventListener('click', function() {
@@ -773,8 +769,18 @@ syncEva();
     }
   });
 
+  // Leaflet JS lazy laden (erst bei Klick), dann Modal öffnen —
+  // so ist L garantiert definiert wenn shown.bs.modal feuert
   document.getElementById('btnMapPicker')?.addEventListener('click', function() {
-    bootstrap.Modal.getOrCreateInstance(_mapModalEl).show();
+    function _open() {
+      bootstrap.Modal.getOrCreateInstance(_mapModalEl).show();
+    }
+    if (typeof L !== 'undefined') { _open(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js';
+    s.onload = _open;
+    s.onerror = function() { alert('Karte konnte nicht geladen werden. Bitte Internetverbindung prüfen.'); };
+    document.head.appendChild(s);
   });
 })();
 // ────────────────────────────────────────────────────────────────────────────
