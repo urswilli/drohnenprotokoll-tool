@@ -3,6 +3,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -525,7 +526,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
       </div>
       <div class="modal-body p-0">
-        <div id="mapContainer" style="height:420px"></div>
+        <div id="mapContainer" style="height:420px; overflow:hidden; position:relative;"></div>
         <div class="p-2 d-flex align-items-center gap-2 border-top bg-light">
           <button type="button" class="btn btn-outline-secondary btn-sm" id="btnMapLocate">
             <i class="bi bi-geo-alt-fill me-1"></i>Aktueller Standort
@@ -714,17 +715,13 @@ syncEva();
 
 // ── Map-Picker (Leaflet) ─────────────────────────────────────────────────────
 (function() {
-  const _lfScript = document.createElement('script');
-  _lfScript.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js';
-  document.head.appendChild(_lfScript);
-
   let _map, _marker, _selLat, _selLon;
   const _mapModalEl = document.getElementById('mapModal');
   if (!_mapModalEl) return;
 
   _mapModalEl.addEventListener('shown.bs.modal', function() {
     if (!_map) {
-      _map = L.map('mapContainer').setView([47.3769, 8.5417], 8);
+      _map = L.map('mapContainer').setView([46.8182, 8.2275], 8);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(_map);
@@ -737,7 +734,7 @@ syncEva();
         document.getElementById('btnMapApply').disabled = false;
       });
     }
-    _map.invalidateSize();
+    setTimeout(function() { _map.invalidateSize(); }, 50);
   });
 
   document.getElementById('btnMapLocate')?.addEventListener('click', function() {
