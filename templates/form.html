@@ -764,8 +764,6 @@ syncEva();
       const data = await fetch('/api/location-data?lat=' + _selLat + '&lon=' + _selLon).then(r => r.json());
       setField('drehort', data.location || '');
       setField('koordinaten', data.coordinates || '');
-      setField('ort_eva',   data.location_short || data.location || '');
-      setField('ort_pilot', data.location_short || data.location || '');
       bootstrap.Modal.getInstance(_mapModalEl).hide();
     } catch(err) {
       alert('Fehler beim Abrufen der Ortsdaten. Bitte erneut versuchen.');
