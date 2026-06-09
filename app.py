@@ -5,7 +5,7 @@ import sqlite3
 import urllib.request
 import urllib.parse
 import smtplib
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -20,6 +20,15 @@ from pypdf import PdfReader, PdfWriter
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'drohnen-protokoll-srg-2024-secret')
+
+# ── Sichere Session-Cookie-Konfiguration ────────────────────────────────────
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,   # kein JavaScript-Zugriff auf Session-Cookie
+    SESSION_COOKIE_SECURE=True,     # Cookie nur über HTTPS senden
+    SESSION_COOKIE_SAMESITE='Lax',  # CSRF-Schutz: Cookie nicht bei Cross-Site-Requests
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+)
+# ────────────────────────────────────────────────────────────────────────────
 
 # Serializer für zeitlich begrenzte Passwort-Reset-Tokens (nutzt SECRET_KEY)
 _reset_serializer = URLSafeTimedSerializer(app.secret_key, salt='pw-reset')
@@ -370,6 +379,18 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return wrapper
+
+
+@app.after_request
+def _set_security_headers(response):
+    """Sicherheits-Header für alle Antworten."""
+    response.headers.setdefault('X-Frame-Options', 'DENY')
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.setdefault(
+        'Permissions-Policy', 'geolocation=(self), camera=(), microphone=()'
+    )
+    return response
 
 
 def dd_to_dms(dd, is_lat):

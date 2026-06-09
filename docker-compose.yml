@@ -2,13 +2,20 @@ services:
   app:
     image: ghcr.io/urswilli/drohnenprotokoll-tool:latest
     restart: unless-stopped
-    ports:
-      - "5050:5050"
+    # Kein ports-Binding: App läuft nur im internen Netz, Zugriff ausschliesslich via cloudflared
     volumes:
       - /opt/drohnenprotokoll/data:/app/data
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - DATA_DIR=/app/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 256m
+    cpus: 0.5
+    networks:
+      - app_net
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -16,6 +23,12 @@ services:
     command: tunnel --no-autoupdate --protocol http2 run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       - app
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge
 
 # ─── Deployment via Portainer ─────────────────────────────────────────────────
 #
