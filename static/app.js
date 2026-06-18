@@ -89,6 +89,40 @@ function requestLocation() {
 
 if (btn) btn.addEventListener('click', requestLocation);
 
+// ── Nur Wetter einfügen (ohne Standort-/Koordinaten-Felder) ──────────────
+
+(function () {
+  const btnW = document.getElementById('btnWeatherOnly');
+  if (!btnW) return;
+  btnW.addEventListener('click', function () {
+    if (!navigator.geolocation) { alert('Geolokalisierung nicht verfügbar.'); return; }
+    showStatus('Wetterdaten werden ermittelt…');
+    btnW.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        fetch('/api/location-data?lat=' + pos.coords.latitude + '&lon=' + pos.coords.longitude)
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            setTextarea('wetterlage', data.weather);
+            showStatus('Wetterlage erfolgreich ermittelt.', true);
+            setTimeout(hideStatus, 4000);
+          })
+          .catch(function () {
+            showStatus('Fehler beim Abrufen der Wetterdaten.', true);
+            setTimeout(hideStatus, 4000);
+          })
+          .finally(function () { btnW.disabled = false; });
+      },
+      function () {
+        showStatus('Standort konnte nicht ermittelt werden.', true);
+        setTimeout(hideStatus, 5000);
+        btnW.disabled = false;
+      },
+      { enableHighAccuracy: false, timeout: 10000 }
+    );
+  });
+})();
+
 // ── Aircraft dropdown ─────────────────────────────────────────────────────
 
 const aircraftSelect = document.getElementById('aircraftSelect');

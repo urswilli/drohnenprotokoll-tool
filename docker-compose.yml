@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     # Kein ports-Binding: App läuft nur im internen Netz, Zugriff ausschliesslich via cloudflared
     volumes:
-      - /opt/drohnenprotokoll/data:/app/data
+      - ./data:/app/data
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - DATA_DIR=/app/data
@@ -32,8 +32,17 @@ networks:
 
 # ─── Deployment via Portainer ─────────────────────────────────────────────────
 #
-# Einmalig auf dem Pi:
-#   sudo mkdir -p /opt/drohnenprotokoll/data
+# Volume ./data ist relativ zum Portainer-Stack-Arbeitsverzeichnis:
+#   /var/lib/portainer/compose/<stack-id>/data/
+#
+# Einmalig auf dem Pi (Verzeichnis anlegen + Berechtigungen setzen):
+#   STACK_DIR=$(docker inspect <stack-container> | grep -o '/var/lib/portainer/compose/[0-9]*' | head -1)
+#   sudo mkdir -p "$STACK_DIR/data"
+#   sudo chown -R 1001:1001 "$STACK_DIR/data"
+#
+# Migration bestehender Daten aus /opt/drohnenprotokoll/data:
+#   sudo cp -r /opt/drohnenprotokoll/data/. "$STACK_DIR/data/"
+#   sudo chown -R 1001:1001 "$STACK_DIR/data"
 #
 # Stacks → Add Stack → Repository
 #   URL: https://github.com/urswilli/drohnenprotokoll-tool

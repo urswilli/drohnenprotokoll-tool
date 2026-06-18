@@ -2,6 +2,8 @@ import os
 import io
 import json
 import sqlite3
+import time as _time
+import threading
 import urllib.request
 import urllib.parse
 import smtplib
@@ -886,6 +888,9 @@ def submit():
         flash(f'Fehler beim PDF-Erstellen: {e}', 'danger')
         return redirect(url_for('index'))
 
+    # Protokoll-Counter erhöhen (in DB, unabhängig vom Dateisystem)
+    set_setting('form_submit_count', str(int(get_setting('form_submit_count', '0')) + 1))
+
     sf = form_data.get('sendeformat', '').strip()
     if sf:
         with get_db() as conn:
@@ -1358,11 +1363,31 @@ def admin():
         'feedback_email': get_setting('feedback_email', 'feedback@dronenerds.ch'),
         'admin_email': get_setting('admin_email', 'info@dronenerds.ch'),
     }
+    form_count = int(get_setting('form_submit_count', '0'))
     return render_template('admin.html', users=users, pending=pending, smtp=smtp_settings,
                            test=test_settings, notify=notify_settings, drones=drones,
                            sendeformate=sendeformate, verwendungszwecke=verwendungszwecke,
-                           redaktionen=redaktionen)
+                           redaktionen=redaktionen, form_count=form_count)
 
+
+def _cleanup_old_pdfs(days=90):
+    cutoff = _time.time() - days * 86400
+    try:
+        for fname in os.listdir(OUTPUT_DIR):
+            if not fname.lower().endswith('.pdf'):
+                continue
+            fpath = os.path.join(OUTPUT_DIR, fname)
+            if os.path.isfile(fpath) and os.path.getmtime(fpath) < cutoff:
+                os.remove(fpath)
+    except Exception:
+        pass
+
+def _pdf_cleanup_loop():
+    while True:
+        _cleanup_old_pdfs()
+        _time.sleep(86400)
+
+threading.Thread(target=_pdf_cleanup_loop, daemon=True, name='pdf-cleanup').start()
 
 # Initialisierung beim Start (sowohl via Gunicorn als auch python3 app.py)
 init_db()
