@@ -30,18 +30,14 @@ networks:
   app_net:
     driver: bridge
 
-# ─── Deployment via Portainer ─────────────────────────────────────────────────
+# ─── Deployment via Portainer (VM docker-public, VLAN 50) ───────────────────
 #
 # Volume ./data ist relativ zum Portainer-Stack-Arbeitsverzeichnis:
 #   /var/lib/portainer/compose/<stack-id>/data/
 #
-# Einmalig auf dem Pi (Verzeichnis anlegen + Berechtigungen setzen):
+# Einmalig in VM docker-public (Verzeichnis anlegen + Berechtigungen setzen):
 #   STACK_DIR=$(docker inspect <stack-container> | grep -o '/var/lib/portainer/compose/[0-9]*' | head -1)
 #   sudo mkdir -p "$STACK_DIR/data"
-#   sudo chown -R 1001:1001 "$STACK_DIR/data"
-#
-# Migration bestehender Daten aus /opt/drohnenprotokoll/data:
-#   sudo cp -r /opt/drohnenprotokoll/data/. "$STACK_DIR/data/"
 #   sudo chown -R 1001:1001 "$STACK_DIR/data"
 #
 # Stacks → Add Stack → Repository

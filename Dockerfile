@@ -5,8 +5,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Non-Root User: verhindert Privilege-Escalation aus dem Container
-# Hinweis: /opt/drohnenprotokoll/data auf dem Pi muss uid 1001 gehören:
-#   sudo chown -R 1001:1001 /opt/drohnenprotokoll/data
+# Hinweis: Portainer-Stack ./data auf der VM muss uid 1001 gehören:
+#   sudo chown -R 1001:1001 /var/lib/portainer/compose/<stack-id>/data
 RUN addgroup --system --gid 1001 appgroup \
     && adduser --system --uid 1001 --ingroup appgroup --no-create-home appuser \
     && mkdir -p /app/output \

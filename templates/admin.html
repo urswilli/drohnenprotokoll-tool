@@ -70,6 +70,14 @@
                        placeholder="Benutzername *" required>
               </div>
               <div class="col-12">
+                <input type="text" name="new_name" class="form-control form-control-sm"
+                       placeholder="Name (optional, sonst Benutzername)">
+              </div>
+              <div class="col-12">
+                <input type="email" name="new_email" class="form-control form-control-sm"
+                       placeholder="E-Mail (optional, sonst Benutzername)">
+              </div>
+              <div class="col-12">
                 <input type="password" name="new_password" class="form-control form-control-sm"
                        placeholder="Passwort (min. 6 Zeichen) *" minlength="6" required>
               </div>
@@ -93,6 +101,12 @@
             <div class="list-group-item d-flex justify-content-between align-items-center px-0">
               <div>
                 <strong>{{ user.username }}</strong>
+                {% if user.pilot_name and user.pilot_name != user.username %}
+                  <span class="text-muted small ms-1">({{ user.pilot_name }})</span>
+                {% endif %}
+                {% if user.email and user.email != user.username %}
+                  <div class="text-muted small">{{ user.email }}</div>
+                {% endif %}
                 {% if user.is_admin %}
                   <span class="badge bg-warning text-dark ms-1">Admin</span>
                 {% endif %}
@@ -100,16 +114,27 @@
                   <span class="badge bg-light text-muted border ms-1">Ich</span>
                 {% endif %}
               </div>
-              {% if user.id != session.user_id %}
-              <form method="post" class="d-inline"
-                    onsubmit="return confirm('Benutzer «{{ user.username }}» wirklich löschen?')">
-                <input type="hidden" name="action" value="delete_user">
-                <input type="hidden" name="uid" value="{{ user.id }}">
-                <button type="submit" class="btn btn-outline-danger btn-sm">
-                  <i class="bi bi-trash"></i>
+              <div class="text-nowrap">
+                <button type="button" class="btn btn-outline-secondary btn-sm me-1"
+                        data-bs-toggle="modal" data-bs-target="#editUserModal"
+                        data-id="{{ user.id }}"
+                        data-username="{{ user.username }}"
+                        data-name="{{ user.pilot_name or '' }}"
+                        data-email="{{ user.email or user.username }}"
+                        data-admin="{{ 1 if user.is_admin else 0 }}">
+                  <i class="bi bi-pencil"></i>
                 </button>
-              </form>
-              {% endif %}
+                {% if user.id != session.user_id %}
+                <form method="post" class="d-inline"
+                      onsubmit="return confirm('Benutzer «{{ user.username }}» wirklich löschen?')">
+                  <input type="hidden" name="action" value="delete_user">
+                  <input type="hidden" name="uid" value="{{ user.id }}">
+                  <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
             </div>
             {% endfor %}
           </div>
@@ -739,6 +764,43 @@
 </div>
 
 <!-- Edit-Drohne Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Benutzer bearbeiten</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post">
+        <input type="hidden" name="action" value="edit_user">
+        <input type="hidden" name="uid" id="editUserId">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Benutzername</label>
+            <input type="text" class="form-control" id="editUserUsername" readonly disabled>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Name</label>
+            <input type="text" name="edit_name" id="editUserName" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">E-Mail</label>
+            <input type="email" name="edit_email" id="editUserEmail" class="form-control" required>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" name="edit_is_admin" id="editUserAdmin">
+            <label class="form-check-label" for="editUserAdmin">Admin-Rechte</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="submit" class="btn btn-srg">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="editDroneModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -843,6 +905,15 @@ document.getElementById('editSrgModal')?.addEventListener('show.bs.modal', funct
   const btn = e.relatedTarget;
   document.getElementById('editSrgId').value   = btn.dataset.id;
   document.getElementById('editSrgName').value = btn.dataset.name;
+});
+
+document.getElementById('editUserModal')?.addEventListener('show.bs.modal', function(e) {
+  const btn = e.relatedTarget;
+  document.getElementById('editUserId').value       = btn.dataset.id;
+  document.getElementById('editUserUsername').value = btn.dataset.username;
+  document.getElementById('editUserName').value       = btn.dataset.name || '';
+  document.getElementById('editUserEmail').value      = btn.dataset.email || '';
+  document.getElementById('editUserAdmin').checked    = btn.dataset.admin === '1';
 });
 
 document.getElementById('editDroneModal')?.addEventListener('show.bs.modal', function(e) {

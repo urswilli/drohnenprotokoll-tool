@@ -69,7 +69,7 @@ jobs:
           print(f'changelog.json mit {len(entries)} Einträgen geschrieben')
           PY
 
-      - name: Set up QEMU (für ARM64 / Pi 5)
+      - name: Set up QEMU (für ARM64 multi-arch)
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx

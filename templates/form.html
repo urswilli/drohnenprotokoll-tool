@@ -96,14 +96,14 @@
                placeholder="pilot@example.com">
       </div>
       <div class="col-md-6">
-        <label class="form-label fw-semibold">Firmenzugehörigkeit des Piloten</label>
-        <input type="text" name="pilot_company" class="form-control"
+        <label class="form-label fw-semibold">Firmenzugehörigkeit des Piloten <span class="text-danger">*</span></label>
+        <input type="text" name="pilot_company" class="form-control" required
                value="{{ profile.pilot_company if profile else '' }}"
                placeholder="z.B. TPC AG oder SRF">
       </div>
       <div class="col-md-6">
-        <label class="form-label fw-semibold">Private Adresse des Piloten</label>
-        <input type="text" name="pilot_address" class="form-control"
+        <label class="form-label fw-semibold">Private Adresse des Piloten <span class="text-danger">*</span></label>
+        <input type="text" name="pilot_address" class="form-control" required
                value="{{ profile.pilot_address if profile else '' }}"
                placeholder="Strasse, PLZ Ort">
         <div class="form-text">Aus deinem Profil (Private Adresse).</div>
@@ -135,8 +135,8 @@
         </div>
       </div>
       <div class="col-md-2">
-        <label class="form-label fw-semibold">SRG-UE</label>
-        <select name="srg_ue" id="srgUeSelect" class="form-select">
+        <label class="form-label fw-semibold">SRG-UE <span class="text-danger">*</span></label>
+        <select name="srg_ue" id="srgUeSelect" class="form-select" required>
           {% for ue in srg_ue_list|default(['SRF']) %}
           <option value="{{ ue }}" {% if pf.get('srg_ue', 'SRF') == ue %}selected{% elif not pf and ue == 'SRF' %}selected{% endif %}>{{ ue }}</option>
           {% endfor %}

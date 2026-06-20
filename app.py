@@ -25,9 +25,10 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'drohnen-protokoll-srg-2024-secret')
 
 # ── Sichere Session-Cookie-Konfiguration ────────────────────────────────────
+_secure_cookie = os.environ.get('SESSION_COOKIE_SECURE', 'true').lower() not in ('0', 'false', 'no')
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,   # kein JavaScript-Zugriff auf Session-Cookie
-    SESSION_COOKIE_SECURE=True,     # Cookie nur über HTTPS senden
+    SESSION_COOKIE_SECURE=_secure_cookie,  # lokal: SESSION_COOKIE_SECURE=false
     SESSION_COOKIE_SAMESITE='Lax',  # CSRF-Schutz: Cookie nicht bei Cross-Site-Requests
     PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
 )
@@ -198,6 +199,9 @@ REDAKTIONEN = [
 SRG_UE_LIST = ['SRF', 'RTS', 'RSI', 'RTR']
 
 MANDATORY_FIELDS = [
+    ('pilot_company', 'Firmenzugehörigkeit des Piloten'),
+    ('pilot_address', 'Private Adresse des Piloten'),
+    ('srg_ue', 'SRG-UE'),
     ('redaktion', 'Redaktion'),
     ('eva_name', 'Name Einsatzverantwortliche/r'),
     ('eva_email', 'E-Mail Einsatzverantwortliche/r SRG'),
@@ -367,6 +371,12 @@ def init_db():
             FROM profiles p
             WHERE p.pilot_company != ''
               AND NOT EXISTS (SELECT 1 FROM drone_holders d WHERE d.user_id = p.user_id)
+        """)
+        conn.execute("""
+            INSERT INTO profiles(user_id, pilot_name, pilot_email)
+            SELECT u.id, u.username, COALESCE(NULLIF(u.email, ''), u.username)
+            FROM users u
+            WHERE NOT EXISTS (SELECT 1 FROM profiles p WHERE p.user_id = u.id)
         """)
         conn.commit()
 
@@ -1307,18 +1317,74 @@ def admin():
         elif action == 'create_user':
             username = request.form.get('new_username', '').strip()
             password = request.form.get('new_password', '')
+            name = request.form.get('new_name', '').strip() or username
+            email = request.form.get('new_email', '').strip().lower() or username
             is_admin = 1 if request.form.get('new_is_admin') else 0
             if username and len(password) >= 6:
-                try:
-                    with get_db() as conn:
-                        conn.execute('INSERT INTO users(username,password_hash,is_admin,email,is_approved) VALUES(?,?,?,?,1)',
-                                     (username, _hash(password), is_admin, username))
-                        conn.commit()
-                    flash(f'Benutzer {username!r} erstellt.', 'success')
-                except sqlite3.IntegrityError:
-                    flash('Benutzername bereits vergeben.', 'danger')
+                if '@' not in email:
+                    flash('Bitte eine gültige E-Mail-Adresse angeben.', 'danger')
+                else:
+                    try:
+                        with get_db() as conn:
+                            cur = conn.execute(
+                                'INSERT INTO users(username,password_hash,is_admin,email,is_approved) VALUES(?,?,?,?,1)',
+                                (username, _hash(password), is_admin, email))
+                            conn.execute(
+                                'INSERT INTO profiles(user_id,pilot_name,pilot_email) VALUES(?,?,?)',
+                                (cur.lastrowid, name, email))
+                            conn.commit()
+                        flash(f'Benutzer {username!r} erstellt.', 'success')
+                    except sqlite3.IntegrityError:
+                        flash('Benutzername bereits vergeben.', 'danger')
             else:
                 flash('Benutzername und Passwort (min. 6 Zeichen) erforderlich.', 'danger')
+
+        elif action == 'edit_user':
+            uid = request.form.get('uid')
+            name = request.form.get('edit_name', '').strip()
+            email = request.form.get('edit_email', '').strip().lower()
+            is_admin = 1 if request.form.get('edit_is_admin') else 0
+            if not uid or not email or '@' not in email:
+                flash('Gültige E-Mail erforderlich.', 'danger')
+            else:
+                with get_db() as conn:
+                    row = conn.execute(
+                        'SELECT is_admin FROM users WHERE id=?', (uid,)).fetchone()
+                    if not row:
+                        flash('Benutzer nicht gefunden.', 'danger')
+                    elif row['is_admin'] and not is_admin:
+                        admin_count = conn.execute(
+                            'SELECT COUNT(*) FROM users WHERE is_admin=1').fetchone()[0]
+                        if admin_count <= 1:
+                            flash('Mindestens ein Admin muss bestehen bleiben.', 'danger')
+                        else:
+                            conn.execute(
+                                'UPDATE users SET email=?, is_admin=? WHERE id=?',
+                                (email, is_admin, uid))
+                            if conn.execute('SELECT 1 FROM profiles WHERE user_id=?', (uid,)).fetchone():
+                                conn.execute(
+                                    'UPDATE profiles SET pilot_name=?, pilot_email=? WHERE user_id=?',
+                                    (name or email, email, uid))
+                            else:
+                                conn.execute(
+                                    'INSERT INTO profiles(user_id,pilot_name,pilot_email) VALUES(?,?,?)',
+                                    (uid, name or email, email))
+                            conn.commit()
+                            flash('Benutzer aktualisiert.', 'success')
+                    else:
+                        conn.execute(
+                            'UPDATE users SET email=?, is_admin=? WHERE id=?',
+                            (email, is_admin, uid))
+                        if conn.execute('SELECT 1 FROM profiles WHERE user_id=?', (uid,)).fetchone():
+                            conn.execute(
+                                'UPDATE profiles SET pilot_name=?, pilot_email=? WHERE user_id=?',
+                                (name or email, email, uid))
+                        else:
+                            conn.execute(
+                                'INSERT INTO profiles(user_id,pilot_name,pilot_email) VALUES(?,?,?)',
+                                (uid, name or email, email))
+                        conn.commit()
+                        flash('Benutzer aktualisiert.', 'success')
 
         elif action == 'approve_user':
             uid = request.form.get('uid')
@@ -1340,8 +1406,17 @@ def admin():
 
         elif action == 'delete_user':
             uid = request.form.get('uid')
-            if str(uid) != str(session['user_id']):
+            if str(uid) == str(session['user_id']):
+                flash('Du kannst dich nicht selbst löschen.', 'danger')
+            else:
                 with get_db() as conn:
+                    ac_ids = [r['id'] for r in conn.execute(
+                        'SELECT id FROM aircraft WHERE user_id=?', (uid,)).fetchall()]
+                    for aid in ac_ids:
+                        conn.execute('DELETE FROM aircraft_holder_map WHERE aircraft_id=?', (aid,))
+                    conn.execute('DELETE FROM aircraft WHERE user_id=?', (uid,))
+                    conn.execute('DELETE FROM drone_holders WHERE user_id=?', (uid,))
+                    conn.execute('DELETE FROM profiles WHERE user_id=?', (uid,))
                     conn.execute('DELETE FROM users WHERE id=?', (uid,))
                     conn.commit()
                 flash('Benutzer gelöscht.', 'success')
@@ -1519,7 +1594,10 @@ def admin():
 
     with get_db() as conn:
         users = conn.execute(
-            'SELECT id,username,is_admin,email,is_approved FROM users WHERE is_approved=1').fetchall()
+            'SELECT u.id, u.username, u.is_admin, u.email, u.is_approved, p.pilot_name '
+            'FROM users u LEFT JOIN profiles p ON p.user_id = u.id '
+            'WHERE u.is_approved=1 ORDER BY u.username COLLATE NOCASE'
+        ).fetchall()
         pending = conn.execute(
             'SELECT u.id, u.username, u.email, p.pilot_name '
             'FROM users u LEFT JOIN profiles p ON u.id = p.user_id '

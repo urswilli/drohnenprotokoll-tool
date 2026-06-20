@@ -15,6 +15,8 @@ venv/
 # Docker
 docker-compose.override.yml
 data/
+prod-import/*
+!prod-import/.gitkeep
 
 # macOS
 .DS_Store
