@@ -6,20 +6,32 @@
 {% endblock %}
 
 {% block content %}
+{% set pf = prefill|default({}) %}
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
   <div>
     <h4 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2 text-srg"></i>Drohnenprotokoll</h4>
     <p class="text-muted small mb-0">Weisung und Checkliste für den Einsatz von Drohnen – V500e</p>
   </div>
-  <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLocation">
-    <i class="bi bi-geo-alt-fill me-1"></i> Standort &amp; Wetter ermitteln
-  </button>
+</div>
+
+<div class="location-action-bar card border-0 shadow-sm mb-3">
+  <div class="card-body py-3 d-flex flex-wrap align-items-center gap-3">
+    <button type="button" class="btn btn-srg btn-lg px-4 fw-bold" id="btnLocation">
+      <i class="bi bi-geo-alt-fill me-2"></i>Standort &amp; Wetter ermitteln
+    </button>
+    <div id="locationStatusTop" class="alert alert-success py-2 mb-0 d-none flex-grow-1">
+      <div class="d-flex align-items-center gap-2">
+        <div class="spinner-border spinner-border-sm text-success d-none" id="locationSpinnerTop"></div>
+        <span id="locationStatusTopText"></span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <form method="post" action="{{ url_for('submit') }}" id="drohnenForm">
 
 <!-- ═══════════════════════════ 1. DROHNENHALTER ════════════════════════════ -->
-{% set ns = namespace(default_holder_id=1) %}
+{% set ns = namespace(default_holder_id=(drone_holders[0].id if drone_holders else 1)) %}
 {% for h in drone_holders if h.is_default %}{% set ns.default_holder_id = h.id %}{% endfor %}
 <div class="card mb-3 border-0 shadow-sm">
   <div class="card-header section-header">
@@ -73,14 +85,14 @@
       <div class="col-md-6">
         <label class="form-label fw-semibold">Vorname, Name des Piloten <span class="text-danger">*</span></label>
         <input type="text" name="pilot_name" class="form-control" required
-               value="{{ profile.pilot_name if profile else '' }}"
+               value="{{ pf.get('pilot_name', profile.pilot_name if profile else '') }}"
                placeholder="z.B. Max Mustermann">
         <div class="form-text">Aus deinem Profil. <a href="{{ url_for('profile') }}">Profil bearbeiten</a></div>
       </div>
       <div class="col-md-6">
         <label class="form-label fw-semibold">E-Mail Drohnenpilot <span class="text-danger">*</span></label>
-        <input type="email" name="pilot_email" class="form-control"
-               value="{{ profile.pilot_email if profile else '' }}"
+        <input type="email" name="pilot_email" class="form-control" required
+               value="{{ pf.get('pilot_email', profile.pilot_email if profile else '') }}"
                placeholder="pilot@example.com">
       </div>
       <div class="col-md-6">
@@ -118,27 +130,68 @@
             {% endfor %}
           </select>
           <input type="text" name="redaktion" id="redaktion" class="form-control"
-                 placeholder="oder Freitext…" required>
+                 placeholder="oder Freitext…" required
+                 value="{{ pf.get('redaktion', '') }}">
         </div>
       </div>
       <div class="col-md-2">
         <label class="form-label fw-semibold">SRG-UE</label>
-        <input type="text" name="srg_ue" class="form-control" value="SRF" placeholder="SRF">
+        <select name="srg_ue" id="srgUeSelect" class="form-select">
+          {% for ue in srg_ue_list|default(['SRF']) %}
+          <option value="{{ ue }}" {% if pf.get('srg_ue', 'SRF') == ue %}selected{% elif not pf and ue == 'SRF' %}selected{% endif %}>{{ ue }}</option>
+          {% endfor %}
+        </select>
       </div>
       <div class="col-md-6">
-        <label class="form-label fw-semibold">Name Einsatzverantwortliche/r</label>
-        <input type="text" name="eva_name" id="evaName" class="form-control" placeholder="Vorname Nachname">
+        <label class="form-label fw-semibold">Name Einsatzverantwortliche/r <span class="text-danger">*</span></label>
+        <input type="text" name="eva_name" id="evaName" class="form-control" required
+               placeholder="Vorname Nachname" value="{{ pf.get('eva_name', '') }}">
       </div>
       <div class="col-md-6">
-        <label class="form-label fw-semibold">E-Mail Einsatzverantwortliche/r SRG</label>
-        <input type="email" name="eva_email" id="evaEmail" class="form-control" placeholder="vorname.nachname@srf.ch">
+        <label class="form-label fw-semibold">E-Mail Einsatzverantwortliche/r SRG <span class="text-danger">*</span></label>
+        <input type="email" name="eva_email" id="evaEmail" class="form-control" required
+               placeholder="vorname.nachname@srf.ch" value="{{ pf.get('eva_email', '') }}">
         <div class="form-text">Wird in CC gesetzt beim E-Mail-Versand.</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════ 4. LUFTFAHRZEUG ════════════════════════════ -->
+<!-- ═══════════════════════ 4. VERWENDUNGSZWECK / SENDEFORMAT ═════════════ -->
+<div class="card mb-3 border-0 shadow-sm">
+  <div class="card-header section-header">
+    <i class="bi bi-camera-video me-2"></i>Verwendungszweck / Sendeformat
+    <span class="badge bg-dropdown ms-2 fw-normal"><i class="bi bi-list-ul me-1"></i>Dropdown</span>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Verwendungszweck <span class="text-danger">*</span></label>
+        <select name="verwendungszweck" id="verwendungszweckSelect" class="form-select" required>
+          <option value="">– Zweck wählen –</option>
+          {% for vz in verwendungszwecke %}
+          <option value="{{ vz }}" {% if pf.get('verwendungszweck', 'Flugaufnahme für Film & Fernsehen') == vz %}selected{% elif not pf and vz == 'Flugaufnahme für Film & Fernsehen' %}selected{% endif %}>{{ vz }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Sendeformat / Sendung <span class="text-danger">*</span></label>
+        <div class="input-group">
+          <select class="form-select" id="sendeformatSelect">
+            <option value="">– Format wählen –</option>
+            {% for sf in sendeformate %}
+            <option value="{{ sf }}">{{ sf }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="sendeformat" id="sendeformat" class="form-control"
+                 placeholder="oder Freitext…" required value="{{ pf.get('sendeformat', '') }}">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ 5. LUFTFAHRZEUG ════════════════════════════ -->
 <div class="card mb-3 border-0 shadow-sm">
   <div class="card-header section-header">
     <i class="bi bi-send me-2"></i>Luftfahrzeug (Drohne)
@@ -195,7 +248,8 @@
       </div>
       <div class="col-md-4">
         <label class="form-label fw-semibold">Typ</label>
-        <input type="text" name="drone_typ" id="droneTyp" class="form-control" placeholder="z.B. Mavic 3 Enterprise">
+        <input type="text" name="drone_typ" id="droneTyp" class="form-control" required
+               placeholder="z.B. Mavic 3 Enterprise" value="{{ pf.get('drone_typ', '') }}">
       </div>
       <div class="col-md-4">
         <label class="form-label fw-semibold">Seriennummer</label>
@@ -203,7 +257,8 @@
       </div>
       <div class="col-md-4">
         <label class="form-label fw-semibold">Reg.-Nr. (eID)</label>
-        <input type="text" name="drone_reg" id="droneReg" class="form-control" placeholder="z.B. CHE-XXXX">
+        <input type="text" name="drone_reg" id="droneReg" class="form-control" required
+               placeholder="z.B. CHE-XXXX" value="{{ pf.get('drone_reg', '') }}">
       </div>
       <div class="col-md-8">
         <label class="form-label fw-semibold">Spez. Ausstattung</label>
@@ -213,7 +268,7 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════ 5. DREHDATUM ═══════════════════════════════ -->
+<!-- ═══════════════════════════ 6. DREHDATUM ═══════════════════════════════ -->
 <div class="card mb-3 border-0 shadow-sm">
   <div class="card-header section-header">
     <i class="bi bi-calendar-date me-2"></i>Drehdatum
@@ -230,7 +285,7 @@
   </div>
 </div>
 
-<!-- ═══════════════════════ 6. DREHORT & KOORDINATEN ══════════════════════ -->
+<!-- ═══════════════════════ 7. DREHORT & KOORDINATEN ══════════════════════ -->
 <div class="card mb-3 border-0 shadow-sm">
   <div class="card-header section-header">
     <i class="bi bi-geo-alt me-2"></i>Drehort mit Koordinaten
@@ -250,9 +305,9 @@
                placeholder="z.B. Zürich, Bezirk Zürich">
       </div>
       <div class="col-md-6">
-        <label class="form-label fw-semibold">Geo-Koordinaten</label>
-        <input type="text" name="koordinaten" id="koordinaten" class="form-control"
-               placeholder="z.B. 47°25'5''N / 8°33'38''O">
+        <label class="form-label fw-semibold">Geo-Koordinaten <span class="text-danger">*</span></label>
+        <input type="text" name="koordinaten" id="koordinaten" class="form-control" required
+               placeholder="z.B. 47°25'5''N / 8°33'38''O" value="{{ pf.get('koordinaten', '') }}">
         <div class="form-text">Wird automatisch aus GPS ermittelt.</div>
       </div>
     </div>
@@ -260,40 +315,6 @@
       <button type="button" class="btn btn-outline-secondary btn-sm" id="btnMapPicker">
         <i class="bi bi-map me-1"></i>Ort auf Karte wählen
       </button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════ 7. VERWENDUNGSZWECK / SENDEFORMAT ═════════════ -->
-<div class="card mb-3 border-0 shadow-sm">
-  <div class="card-header section-header">
-    <i class="bi bi-camera-video me-2"></i>Verwendungszweck / Sendeformat
-    <span class="badge bg-dropdown ms-2 fw-normal"><i class="bi bi-list-ul me-1"></i>Dropdown</span>
-  </div>
-  <div class="card-body">
-    <div class="row g-3">
-      <div class="col-md-6">
-        <label class="form-label fw-semibold">Verwendungszweck <span class="text-danger">*</span></label>
-        <select name="verwendungszweck" id="verwendungszweckSelect" class="form-select" required>
-          <option value="">– Zweck wählen –</option>
-          {% for vz in verwendungszwecke %}
-          <option value="{{ vz }}" {% if vz == 'Flugaufnahme für Film & Fernsehen' %}selected{% endif %}>{{ vz }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label fw-semibold">Sendeformat / Sendung <span class="text-danger">*</span></label>
-        <div class="input-group">
-          <select class="form-select" id="sendeformatSelect">
-            <option value="">– Format wählen –</option>
-            {% for sf in sendeformate %}
-            <option value="{{ sf }}">{{ sf }}</option>
-            {% endfor %}
-          </select>
-          <input type="text" name="sendeformat" id="sendeformat" class="form-control"
-                 placeholder="oder Freitext…" required>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -308,10 +329,16 @@
     </button>
   </div>
   <div class="card-body">
+    <div id="weatherStatus" class="alert alert-info py-2 d-none mb-3">
+      <div class="d-flex align-items-center gap-2">
+        <div class="spinner-border spinner-border-sm text-info d-none" id="weatherSpinner"></div>
+        <span id="weatherStatusText"></span>
+      </div>
+    </div>
     <div class="col-12">
       <label class="form-label fw-semibold">Wetterlage / visuelle Beurteilung <span class="text-danger">*</span></label>
       <textarea name="wetterlage" id="wetterlage" class="form-control" rows="3" required
-                placeholder="Automatisch befüllt nach Standortermittlung – oder manuell eingeben…"></textarea>
+                placeholder="Automatisch befüllt nach Standortermittlung – oder manuell eingeben…">{{ pf.get('wetterlage', '') }}</textarea>
     </div>
   </div>
 </div>
@@ -337,21 +364,24 @@
   <div class="card-body">
     <div class="row g-3 align-items-end">
       <div class="col-6 col-md-3">
-        <label class="form-label fw-semibold">Startzeit (erster Flug)</label>
-        <input type="time" name="startzeit" id="startzeit" class="form-control" placeholder="HH:MM">
+        <label class="form-label fw-semibold">Startzeit (erster Flug) <span class="text-danger">*</span></label>
+        <input type="time" name="startzeit" id="startzeit" class="form-control" required
+               value="{{ pf.get('startzeit', '') }}" placeholder="HH:MM">
       </div>
       <div class="col-6 col-md-3">
-        <label class="form-label fw-semibold">Landezeit (letzter Flug)</label>
-        <input type="time" name="landezeit" id="landezeit" class="form-control" placeholder="HH:MM">
+        <label class="form-label fw-semibold">Landezeit (letzter Flug) <span class="text-danger">*</span></label>
+        <input type="time" name="landezeit" id="landezeit" class="form-control" required
+               value="{{ pf.get('landezeit', '') }}" placeholder="HH:MM">
       </div>
       <div class="col-6 col-md-3">
-        <label class="form-label fw-semibold">Flugminuten gesamt</label>
-        <input type="number" name="flugminuten" id="flugminuten" class="form-control" min="0"
-               placeholder="z.B. 45">
+        <label class="form-label fw-semibold">Flugminuten gesamt <span class="text-danger">*</span></label>
+        <input type="number" name="flugminuten" id="flugminuten" class="form-control" min="0" required
+               value="{{ pf.get('flugminuten', '') }}" placeholder="z.B. 45">
       </div>
       <div class="col-6 col-md-3">
-        <label class="form-label fw-semibold">Anzahl Flüge</label>
-        <input type="number" name="anzahl_fluege" class="form-control" min="1" value="1" placeholder="z.B. 3">
+        <label class="form-label fw-semibold">Anzahl Flüge <span class="text-danger">*</span></label>
+        <input type="number" name="anzahl_fluege" class="form-control" min="1" required
+               value="{{ pf.get('anzahl_fluege', '1') }}" placeholder="z.B. 3">
       </div>
     </div>
   </div>
@@ -418,50 +448,44 @@
       <div class="col-md-6">
         <h6 class="fw-bold text-muted mb-3 border-bottom pb-2">Einsatzverantwortliche/r SRG</h6>
         <div class="mb-3">
-          <label class="form-label fw-semibold">Ort</label>
-          <input type="text" name="ort_eva" id="ort_eva" class="form-control"
-                 placeholder="Automatisch aus GPS oder manuell">
+          <label class="form-label fw-semibold">Ort <span class="text-danger">*</span></label>
+          <input type="text" name="ort_eva" id="ort_eva" class="form-control" required
+                 placeholder="Automatisch aus GPS oder manuell" value="{{ pf.get('ort_eva', '') }}">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-semibold">Datum</label>
-          <input type="date" name="datum_eva" id="datum_eva" class="form-control"
-                 value="{{ today.replace('/','-') }}">
+          <label class="form-label fw-semibold">Datum <span class="text-danger">*</span></label>
+          <input type="date" name="datum_eva" id="datum_eva" class="form-control" required
+                 value="{{ pf.get('datum_eva', today.replace('/','-')) }}">
         </div>
         <div class="mb-2">
-          <label class="form-label fw-semibold">Vorname / Nachname</label>
-          <input type="text" name="eva_signature" id="evaSignatureName" class="form-control"
-                 placeholder="Vorname Nachname">
+          <label class="form-label fw-semibold">Vorname / Nachname <span class="text-danger">*</span></label>
+          <input type="text" name="eva_signature" id="evaSignatureName" class="form-control" required
+                 placeholder="Vorname Nachname" value="{{ pf.get('eva_signature', '') }}">
         </div>
         <div class="mb-0">
-          <label class="form-label fw-semibold">E-Mail</label>
-          <input type="email" name="eva_signature_email" id="evaSignatureEmail" class="form-control"
-                 placeholder="vorname.nachname@srf.ch">
-          <div class="form-text">
-            Bei elektronischem Versand reicht die E-Mailadresse.
-          </div>
+          <label class="form-label fw-semibold">E-Mail <span class="text-danger">*</span></label>
+          <input type="email" name="eva_signature_email" id="evaSignatureEmail" class="form-control" required
+                 placeholder="vorname.nachname@srf.ch" value="{{ pf.get('eva_signature_email', '') }}">
         </div>
       </div>
       <!-- Drohnenpilot -->
       <div class="col-md-6">
         <h6 class="fw-bold text-muted mb-3 border-bottom pb-2">Drohnenpilot</h6>
         <div class="mb-3">
-          <label class="form-label fw-semibold">Ort</label>
-          <input type="text" name="ort_pilot" id="ort_pilot" class="form-control"
-                 placeholder="Automatisch aus GPS oder manuell">
+          <label class="form-label fw-semibold">Ort <span class="text-danger">*</span></label>
+          <input type="text" name="ort_pilot" id="ort_pilot" class="form-control" required
+                 placeholder="Automatisch aus GPS oder manuell" value="{{ pf.get('ort_pilot', '') }}">
         </div>
         <div class="mb-3">
-          <label class="form-label fw-semibold">Datum</label>
-          <input type="date" name="datum_pilot" id="datum_pilot" class="form-control"
-                 value="{{ today.replace('/','-') }}">
+          <label class="form-label fw-semibold">Datum <span class="text-danger">*</span></label>
+          <input type="date" name="datum_pilot" id="datum_pilot" class="form-control" required
+                 value="{{ pf.get('datum_pilot', today.replace('/','-')) }}">
         </div>
         <div class="mb-0">
-          <label class="form-label fw-semibold">E-Mail Drohnenpilot</label>
-          <input type="email" name="pilot_signature_email" class="form-control"
-                 value="{{ profile.pilot_email if profile else '' }}"
+          <label class="form-label fw-semibold">E-Mail Drohnenpilot <span class="text-danger">*</span></label>
+          <input type="email" name="pilot_signature_email" class="form-control" required
+                 value="{{ pf.get('pilot_signature_email', profile.pilot_email if profile else '') }}"
                  placeholder="vorname.nachname@srf.ch">
-          <div class="form-text">
-            Aus Profil. Bei elektronischem Versand erscheint die E-Mailadresse auf der Unterschriftslinie.
-          </div>
         </div>
       </div>
     </div>
@@ -476,13 +500,15 @@
   <div class="card-body">
     <div class="mb-3">
       <label class="form-label fw-semibold">Empfänger</label>
-      <div class="form-check">
-        <input type="checkbox" class="form-check-input" name="rcpt_eng_service" id="rcptEngService" value="on" checked>
-        <label class="form-check-label" for="rcptEngService">eng-service@srf.ch</label>
+      <input type="hidden" name="rcpt_drohnen" value="on">
+      <div class="form-check" id="rcptEngServiceRow">
+        <input type="hidden" name="rcpt_eng_service" id="rcptEngServiceHidden" value="off">
+        <input type="checkbox" class="form-check-input" id="rcptEngServiceDisplay" checked disabled>
+        <label class="form-check-label" for="rcptEngServiceDisplay">eng-service@srf.ch</label>
       </div>
       <div class="form-check">
-        <input type="checkbox" class="form-check-input" name="rcpt_drohnen" id="rcptDrohnen" value="on" checked>
-        <label class="form-check-label" for="rcptDrohnen">drohnen@srf.ch</label>
+        <input type="checkbox" class="form-check-input" id="rcptDrohnenDisplay" checked disabled>
+        <label class="form-check-label" for="rcptDrohnenDisplay">drohnen@srf.ch</label>
       </div>
       <div class="form-check">
         <input type="checkbox" class="form-check-input" name="rcpt_cc_eva" id="rcptCcEva" value="on" checked>
@@ -617,12 +643,10 @@ function updateHolder() {
   if (pilotCompanyEl && !pilotCompanyManual) setVal(pilotCompanyEl, company);
   filterDrones(hid);
   const isSRF = (String(hid) === '1');
-  ['rcptEngService', 'rcptDrohnen', 'rcptCcEva'].forEach(function(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.disabled = isSRF;
-    if (isSRF) el.checked = true;
-  });
+  const engHidden = document.getElementById('rcptEngServiceHidden');
+  const engRow = document.getElementById('rcptEngServiceRow');
+  if (engHidden) engHidden.value = isSRF ? 'on' : 'off';
+  if (engRow) engRow.classList.toggle('d-none', !isSRF);
 }
 
 function filterDrones(hid) {
@@ -697,25 +721,53 @@ function syncEva() {
   });
 });
 
-// EVA-E-Mail automatisch aus Name generieren (vorname.nachname@srf.ch)
+// EVA-E-Mail automatisch aus Name + SRG-UE generieren (vorname.nachname@{srg_ue}.ch)
 var evaEmailManuallyEdited = false;
+function evaDomain() {
+  const ue = (document.getElementById('srgUeSelect')?.value || 'SRF').trim().toLowerCase();
+  return ue ? ue + '.ch' : 'srf.ch';
+}
+function generateEvaEmail(name) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return '';
+  return parts[0].toLowerCase() + '.' + parts.slice(1).join('.').toLowerCase() + '@' + evaDomain();
+}
 document.getElementById('evaEmail')?.addEventListener('input', function(e) {
   if (e.isTrusted) evaEmailManuallyEdited = true;
   syncEva();
 });
-document.getElementById('evaName')?.addEventListener('input', function() {
+document.getElementById('srgUeSelect')?.addEventListener('change', function() {
   if (!evaEmailManuallyEdited) {
-    const parts = this.value.trim().split(/\s+/);
     const emailEl = document.getElementById('evaEmail');
-    if (emailEl) {
-      const email = parts.length >= 2
-        ? parts[0].toLowerCase() + '.' + parts.slice(1).join('.').toLowerCase() + '@srf.ch'
-        : '';
-      setVal(emailEl, email);
-    }
+    const nameEl = document.getElementById('evaName');
+    if (emailEl && nameEl) setVal(emailEl, generateEvaEmail(nameEl.value));
   }
   syncEva();
 });
+document.getElementById('evaName')?.addEventListener('input', function() {
+  if (!evaEmailManuallyEdited) {
+    const emailEl = document.getElementById('evaEmail');
+    if (emailEl) setVal(emailEl, generateEvaEmail(this.value));
+  }
+  syncEva();
+});
+
+// Verwendungszweck «Ausbildung»: Redaktion + Sendeformat fixieren
+function applyAusbildungMode() {
+  const isAusb = document.getElementById('verwendungszweckSelect')?.value === 'Ausbildung';
+  const rd = document.getElementById('redaktion');
+  const sf = document.getElementById('sendeformat');
+  const rdSel = document.getElementById('redaktionSelect');
+  const sfSel = document.getElementById('sendeformatSelect');
+  [rd, sf].forEach(el => {
+    if (!el) return;
+    if (isAusb) { setVal(el, 'Ausbildung'); el.readOnly = true; el.classList.add('bg-light'); }
+    else { el.readOnly = false; el.classList.remove('bg-light'); }
+  });
+  [rdSel, sfSel].forEach(el => { if (el) el.disabled = isAusb; });
+}
+document.getElementById('verwendungszweckSelect')?.addEventListener('change', applyAusbildungMode);
+applyAusbildungMode();
 syncEva();
 
 // §4 Ort-Felder: manuelle Eingabe in einem Feld → automatisch ins andere

@@ -294,6 +294,73 @@
     </div>
   </div>
 
+  <!-- SRG-UE -->
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header section-header collapsed d-flex justify-content-between align-items-center"
+           data-bs-toggle="collapse" data-bs-target="#collapseSrgUe">
+        <span><i class="bi bi-broadcast me-2"></i>SRG-UE</span>
+        <i class="bi bi-chevron-down collapse-chevron"></i>
+      </div>
+      <div class="collapse" id="collapseSrgUe">
+        <div class="card-body">
+          <div class="row g-4">
+            <div class="col-lg-4">
+              <h6 class="fw-semibold mb-3">Neuen SRG-UE-Wert erfassen</h6>
+              <form method="post">
+                <input type="hidden" name="action" value="add_srg_ue">
+                <div class="mb-3">
+                  <label class="form-label fw-semibold small mb-1">Kürzel *</label>
+                  <input type="text" name="srg_name" class="form-control form-control-sm"
+                         placeholder="z.B. SRF" required>
+                </div>
+                <button type="submit" class="btn btn-srg btn-sm w-100">
+                  <i class="bi bi-plus-circle me-1"></i>SRG-UE hinzufügen
+                </button>
+              </form>
+            </div>
+            <div class="col-lg-8">
+              <h6 class="fw-semibold mb-3">Erfasste SRG-UE-Werte</h6>
+              {% if srg_ue %}
+              <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr><th>Kürzel</th><th class="text-end"></th></tr>
+                  </thead>
+                  <tbody>
+                    {% for ue in srg_ue %}
+                    <tr>
+                      <td>{{ ue.name }}</td>
+                      <td class="text-end d-flex gap-1 justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#editSrgModal"
+                                data-id="{{ ue.id }}" data-name="{{ ue.name }}">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <form method="post" class="d-inline"
+                              onsubmit="return confirm('SRG-UE «{{ ue.name }}» wirklich löschen?')">
+                          <input type="hidden" name="action" value="delete_srg_ue">
+                          <input type="hidden" name="srg_id" value="{{ ue.id }}">
+                          <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <p class="text-muted small">Noch keine SRG-UE-Werte erfasst.</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Sendeformate -->
   <div class="col-12">
     <div class="card border-0 shadow-sm">
@@ -442,15 +509,15 @@
             <input type="hidden" name="action" value="save_notifications">
             <div class="mb-2">
               <label class="form-label fw-semibold">Feedback-Empfängeradresse</label>
-              <input type="email" name="feedback_email" class="form-control"
+              <input type="text" name="feedback_email" class="form-control"
                      value="{{ notify.feedback_email }}" placeholder="feedback@dronenerds.ch">
-              <div class="form-text">Empfänger für Nachrichten aus der Feedback-Funktion.</div>
+              <div class="form-text">Mehrere Adressen kommasepariert möglich.</div>
             </div>
             <div class="mb-2">
               <label class="form-label fw-semibold">Admin-/Registrierungsadresse</label>
-              <input type="email" name="admin_email" class="form-control"
+              <input type="text" name="admin_email" class="form-control"
                      value="{{ notify.admin_email }}" placeholder="info@dronenerds.ch">
-              <div class="form-text">Erhält bei jeder neuen Registrierung eine Mail mit Direkt-Freischalt-Link.</div>
+              <div class="form-text">Mehrere Adressen kommasepariert möglich. Erhält bei Registrierungen eine Mail mit Direkt-Freischalt-Link.</div>
             </div>
             <button type="submit" class="btn btn-srg w-100 mt-2">
               <i class="bi bi-floppy me-1"></i>Benachrichtigungen speichern
@@ -645,6 +712,32 @@
   </div>
 </div>
 
+<!-- Edit-SRG-UE Modal -->
+<div class="modal fade" id="editSrgModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>SRG-UE bearbeiten</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post">
+        <input type="hidden" name="action" value="edit_srg_ue">
+        <input type="hidden" name="srg_id" id="editSrgId">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Kürzel *</label>
+            <input type="text" name="srg_name" id="editSrgName" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="submit" class="btn btn-srg"><i class="bi bi-floppy me-1"></i>Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- Edit-Drohne Modal -->
 <div class="modal fade" id="editDroneModal" tabindex="-1">
   <div class="modal-dialog">
@@ -744,6 +837,12 @@ document.getElementById('editVzModal')?.addEventListener('show.bs.modal', functi
   const btn = e.relatedTarget;
   document.getElementById('editVzId').value   = btn.dataset.id;
   document.getElementById('editVzName').value = btn.dataset.name;
+});
+
+document.getElementById('editSrgModal')?.addEventListener('show.bs.modal', function(e) {
+  const btn = e.relatedTarget;
+  document.getElementById('editSrgId').value   = btn.dataset.id;
+  document.getElementById('editSrgName').value = btn.dataset.name;
 });
 
 document.getElementById('editDroneModal')?.addEventListener('show.bs.modal', function(e) {

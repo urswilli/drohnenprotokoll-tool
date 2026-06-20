@@ -13,6 +13,7 @@ The SQLite database and `output/` folder are created automatically on first run 
 Dependencies: `flask`, `pypdf`, `werkzeug`, `gunicorn` (see `requirements.txt`). `itsdangerous` is imported directly (password-reset tokens) but ships transitively with Flask, so it is not pinned separately.
 
 There is no build step, linter, or test suite. To smoke-test against a throwaway DB (so the real `drohnen.db` is never touched), point `DATA_DIR` at a temp dir and drive `app.test_client()`:
+
 ```bash
 DATA_DIR=$(mktemp -d) python3 -c "import app; c=app.app.test_client(); print(c.get('/login').status_code)"
 ```
@@ -24,10 +25,13 @@ DATA_DIR=$(mktemp -d) python3 -c "import app; c=app.app.test_client(); print(c.g
 **Data paths** are controlled by the `DATA_DIR` environment variable (default: same directory as `app.py`). In Docker, `DATA_DIR=/app/data` and the host directory `/opt/drohnenprotokoll/data` is mounted there. DB and output files are created inside `DATA_DIR` automatically.
 
 **First-time setup on Pi:**
+
 ```bash
 sudo mkdir -p /opt/drohnenprotokoll/data
 ```
+
 Then deploy via Portainer (Stacks → Add Stack → Repository) with environment variables:
+
 - `SECRET_KEY` = output of `python3 -c "import secrets; print(secrets.token_hex(32))"`
 - `DATA_DIR` = `/app/data`
 - `CLOUDFLARE_TUNNEL_TOKEN` = token from the Cloudflare Zero Trust dashboard (only if the `cloudflared` service is used)
@@ -37,6 +41,7 @@ Then deploy via Portainer (Stacks → Add Stack → Repository) with environment
 **Public access (Cloudflare Tunnel):** `docker-compose.yml` includes a `cloudflared` service that exposes the app publicly (e.g. `srf.dronenerds.ch`) with no open router ports. The public hostname is configured in the Cloudflare Zero Trust dashboard pointing at `http://app:5050`. cloudflared needs **outbound port 7844** (TCP + UDP) — there is no flag that moves it to 443; `--protocol http2` still dials 7844. Known gotcha: Sunrise's **"Surf Protect"** ISP filter silently blocks 7844 (verify with `nc -zv -w5 region1.v2.argotunnel.com 7844` from any host on the LAN — a timeout means it's blocked). Disable Surf Protect in the Sunrise customer portal; the UDR7 firewall/IPS was never the cause.
 
 **Migrating existing DB to Pi:**
+
 ```bash
 # On Mac:
 scp "/path/to/drohnen.db" pi@<ip>:~/drohnen.db
@@ -50,21 +55,26 @@ sudo mv ~/drohnen.db /opt/drohnenprotokoll/data/drohnen.db
 
 Single-file Flask app (`app.py`) — no blueprints, no separate models file. `init_db()` is called at module level (not inside `__main__`) so it runs under both Gunicorn and the dev server.
 
-**Data layer:** SQLite via `sqlite3` directly (no ORM). `get_db()` returns a `Row`-factory connection. `init_db()` creates all tables and runs `ALTER TABLE` migrations in try/except blocks (idempotent). Tables: `users`, `profiles`, `aircraft` (per-user drones), `drones` (SRG fleet, admin-managed), `settings` (key/value SMTP config), `sendeformate`, `verwendungszwecke`.
+**Data layer:** SQLite via `sqlite3` directly (no ORM). `get_db()` returns a `Row`-factory connection. `init_db()` creates all tables and runs `ALTER TABLE` migrations in try/except blocks (idempotent). Tables: `users`, `profiles`, `aircraft` (per-user drones), `drones` (SRG fleet, admin-managed), `settings` (key/value SMTP config), `sendeformate`, `verwendungszwecke`, `redaktionen`, `srg_ue`, `drone_holders`, `aircraft_holder_map`.
 
 **PDF generation:** `fill_pdf(form_data)` uses `pypdf` to clone `SRG_Weisung und Checkliste für den Einsatz von Drohnen_V500e.pdf` and write form field values. Critical field mapping (confirmed by PDF coordinate analysis):
+
 - `Text12x` = EVA section: `Text121`=eva_name, `Text122`=redaktion, `Text123`=srg_ue
 - `Text13x` = Pilot section: `Text131`=pilot_name, `Text132`=pilot_address
 - §4 signature lines: `Text13` = EVA email line, `Info.33` = EVA Vorname/Nachname below it (source: §4 field `eva_signature`, fallback `eva_name`); `Text15` = Pilot **email** line (never the name), `Info.34` = Pilot Vorname/Nachname below it
 - `Info.32` = green instructional text above Ort/Datum (cleared to `''`)
 - `Info.35`/`Info.37` = Ort EVA/Pilot; `Info.36`/`Info.38` = Datum EVA/Pilot
 - Drohnenhalter: `Text111`=drone_holder_company, `Text112`=drone_holder_address (fallback to SRF hardcoded values)
+- After fill: all `Info.*` fields cleared; AcroForm fields set ReadOnly via `_lock_pdf_fields()`
 
-**Form submission flow:** `GET /` renders `form.html` with profile data + drone lists → `POST /submit` calls `fill_pdf()`, optionally `send_email()`, renders `success.html`. The readonly Drohnenhalter fields in Section 1 are accompanied by hidden inputs (`drone_holder_company`, `drone_holder_address`) so the values reach `form_data`.
+**Form submission flow:** `GET /` renders `form.html` with profile data + drone lists → `POST /submit` validates mandatory fields server-side (`_validate_form`), calls `fill_pdf()`, optionally `send_email()`, renders `success.html`. Session `form_prefill` enables «Neues Protokoll für diese Produktion» via `/?continue=1` (clears Wetterlage + Flugdauer). The readonly Drohnenhalter fields in Section 1 are accompanied by hidden inputs (`drone_holder_company`, `drone_holder_address`) so the values reach `form_data`.
+
+**SRF access control:** SRF system holder (id=1) and SRG fleet drones only for users with `@srf.ch` email (`_is_srf_user`). Protocol mail always To `drohnen@srf.ch`; `eng-service@srf.ch` only when SRF holder selected.
 
 **Location API:** `GET /api/location-data?lat=&lon=` fetches Nominatim (reverse geocoding) and Open-Meteo (weather). Returns both `location` (full address with street) and `location_short` (PLZ + city only). `static/app.js` uses `location_short` for the Ort signature fields and `location` for the Drehort field.
 
 **Profile address split:** `profiles` table has two address fields:
+
 - `pilot_company_address` → form Section 1 (Drohnenhalter), goes to `Text111`/`Text112` in PDF
 - `pilot_address` → form Section 2 (private pilot address), goes to `Text132` in PDF
 
@@ -82,7 +92,7 @@ Single-file Flask app (`app.py`) — no blueprints, no separate models file. `in
 
 **Feedback:** `GET/POST /feedback` (`login_required`) — sender prefilled from `profiles.pilot_email` (fallback session username), sends via `send_simple_email()` to `feedback_email`. Navbar link in `base.html`.
 
-**Versioning:** Displayed as `Beta 0.X` in the navbar (`base.html`) and on the login footer, X = running commit count. `_get_version()` reads env `APP_VERSION` (the count, injected at Docker build time by GitHub Actions via `build-args`), falling back to `git rev-list --count HEAD` for local dev. Exposed to all templates as `app_version` via an `@app.context_processor`. The workflow uses `fetch-depth: 0` so the full history is available for counting.
+**Versioning:** Displayed as `Beta 0.X` in the navbar (`base.html`) and on the login footer, X = running commit count. `_get_version()` reads env `APP_VERSION` (the count, injected at Docker build time by GitHub Actions via `build-args`), falling back to `git rev-list --count HEAD` for local dev. Exposed to all templates as `app_version` via an `@app.context_processor`. The workflow uses `fetch-depth: 0` so the full history is available for counting. X matches Trello version labels (e.g. `0.45` → `Beta 0.45`). Release steps: see **Git Workflow** below.
 
 **Changelog:** The version badge in the navbar is a button that opens a Bootstrap modal (`#changelogModal` in `base.html`) listing entries newest-first. `_get_changelog()` returns `[{version, hash, subject, date}]` where `version` = commit position (oldest=1, newest=`APP_VERSION`). Source priority: (1) `changelog.json` in `BASE_DIR` — generated at Docker build time by a workflow step from `git log --no-merges --reverse` and baked into the image (the slim runtime has no `git`); (2) live `git log` for local dev; (3) empty list. `changelog.json` is git-ignored (build artifact) but **not** docker-ignored — `.dockerignore` excludes `.git` so the runtime never falls back to a stale repo. Exposed to templates as `changelog`.
 
@@ -98,3 +108,28 @@ Single-file Flask app (`app.py`) — no blueprints, no separate models file. `in
 - New DB columns must be added both in the `CREATE TABLE` statement and as a `try/except ALTER TABLE` block in `init_db()` for existing databases.
 - `fill_pdf()` receives raw `request.form.to_dict()` — checkbox fields absent from POST are normalised to `'off'` in `/submit` before calling `fill_pdf`.
 - Generated PDFs land in `DATA_DIR/output/` (gitignored). Filename pattern: `Drohnenprotokoll_{date}_{pilot}.pdf`.
+
+## Git Workflow
+
+**Do not commit or push during implementation** — only when the user explicitly orders a new version (e.g. «Version 0.45 abschliessen», «neue Version beauftragen»). Until then, leave changes uncommitted.
+
+When a version release is ordered, commit and push are part of that release:
+
+- No feature branches, no PRs — commit directly to `main` and push
+- One release commit per version; the subject summarises all implemented changes
+- Changelog entry = commit subject only (German); the app reads it via `_get_changelog()` — no separate changelog file
+- Commit message: `Beta 0.{X}: {kurze Beschreibung in Deutsch}` — X = commit count after the commit (= app version, = Trello label e.g. `0.45`)
+- Update `CLAUDE.md` with new project insights from the release (architecture, conventions, deployment) — only when something relevant changed, not a mandatory diff every release
+
+## Trello Toolcall
+
+When the user orders a new version, fetch specs from Trello via Composio MCP (`user-composio`; Trello is connected there — use `COMPOSIO_SEARCH_TOOLS` → `TRELLO_*` to read and move cards):
+
+- Board: [Drohnenprotokoll Webtool](https://trello.com/b/O9oUXt0N/drohnenprotokoll-webtool) (`O9oUXt0N`)
+- Version numbers are unified: Trello label `0.45` = app `Beta 0.45` = commit count `45`
+- The list **Ready to implement** contains the cards for the next version, tagged with that version number
+- Only consider cards from **Ready to implement**
+- Each version has a master card tagged **Version** and the version number (e.g. `0.45`); linked cards define the scope
+- After the user orders the version release and the release commit is done, move all processed cards from **Ready to implement** to **Implemented**
+- If you notice a discrepancy with the specs, alert the user
+

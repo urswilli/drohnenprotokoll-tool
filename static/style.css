@@ -45,7 +45,15 @@ body.login-bg { background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%); }
   box-shadow: 0 0 0 .2rem rgba(200,16,46,.15);
 }
 
-/* ── Location status banner ── */
+/* ── Location action bar (prominent weather button) ── */
+.location-action-bar {
+  border-left: 4px solid var(--srg-red);
+  background: linear-gradient(135deg, #fff 0%, #fff8f8 100%);
+}
+#locationStatusTop { border-left: 4px solid #198754; }
+#weatherStatus { border-left: 4px solid #0dcaf0; }
+
+/* ── Location status banner (Drehort section) ── */
 #locationStatus { border-left: 4px solid #0dcaf0; }
 
 /* ── Auto-filled fields highlight ── */

@@ -16,7 +16,10 @@
       {% if email_sent %}
       <div class="alert alert-success py-2">
         <i class="bi bi-envelope-check me-1"></i>
-        E-Mail wurde an <strong>drohnen@srf.ch</strong> &amp; <strong>eng-service@srf.ch</strong> gesendet.
+        E-Mail wurde gesendet an:
+        {% for addr in email_recipients %}
+        <strong>{{ addr }}</strong>{% if not loop.last %}, {% endif %}
+        {% endfor %}
       </div>
       {% elif not smtp_configured %}
       <div class="alert alert-warning py-2">
@@ -37,15 +40,13 @@
         <a href="{{ url_for('download', filename=filename) }}" class="btn btn-srg btn-lg px-4 fw-bold">
           <i class="bi bi-download me-2"></i>PDF herunterladen
         </a>
+        <a href="{{ url_for('index', continue=1) }}" class="btn btn-srg btn-lg px-4">
+          <i class="bi bi-plus-circle me-2"></i>Neues Protokoll für diese Produktion
+        </a>
         <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-lg px-4">
-          <i class="bi bi-plus-circle me-2"></i>Neues Protokoll
+          <i class="bi bi-file-earmark me-2"></i>Leeres Formular
         </a>
       </div>
-
-      <p class="text-muted small mt-4 mb-0">
-        <i class="bi bi-info-circle me-1"></i>
-        Gemäss Weisung ist das Protokoll bis 1 Jahr nach dem Flug aufzubewahren.
-      </p>
     </div>
   </div>
 </div>

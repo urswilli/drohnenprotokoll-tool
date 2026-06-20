@@ -19,6 +19,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 def _hash(pw): return generate_password_hash(pw, method='pbkdf2:sha256')
 from pypdf import PdfReader, PdfWriter
+from pypdf.generic import NameObject, NumberObject
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'drohnen-protokoll-srg-2024-secret')
@@ -185,6 +186,7 @@ VERWENDUNGSZWECKE = [
     'Sportaufnahme',
     'Dokumentationsaufnahme',
     'Kulturaufnahme',
+    'Ausbildung',
     'Anderes',
 ]
 
@@ -192,6 +194,39 @@ REDAKTIONEN = [
     'Tagesschau', '10 vor 10', 'DOK', 'SRF News', 'SRF Sport',
     'SRF bi de Lüt', 'Schweizer Helden', 'SRF Kultur', 'Sonstige',
 ]
+
+SRG_UE_LIST = ['SRF', 'RTS', 'RSI', 'RTR']
+
+MANDATORY_FIELDS = [
+    ('redaktion', 'Redaktion'),
+    ('eva_name', 'Name Einsatzverantwortliche/r'),
+    ('eva_email', 'E-Mail Einsatzverantwortliche/r SRG'),
+    ('drone_brand', 'Marke'),
+    ('drone_typ', 'Typ'),
+    ('drone_reg', 'Reg.-Nr. (eID)'),
+    ('drehdatum', 'Drehdatum'),
+    ('drehort', 'Drehort / Bezirk'),
+    ('koordinaten', 'Geo-Koordinaten'),
+    ('verwendungszweck', 'Verwendungszweck'),
+    ('sendeformat', 'Sendeformat / Sendung'),
+    ('wetterlage', 'Wetterlage / visuelle Beurteilung'),
+    ('risikobeurteilung', 'Beurteilung (Sicherheits- und Risikobeurteilung)'),
+    ('startzeit', 'Startzeit'),
+    ('landezeit', 'Landezeit'),
+    ('flugminuten', 'Flugminuten gesamt'),
+    ('anzahl_fluege', 'Anzahl Flüge'),
+    ('ort_eva', 'Ort (Einsatzverantwortliche/r)'),
+    ('datum_eva', 'Datum (Einsatzverantwortliche/r)'),
+    ('eva_signature', 'Vorname/Nachname (Einsatzverantwortliche/r)'),
+    ('eva_signature_email', 'E-Mail (Einsatzverantwortliche/r)'),
+    ('ort_pilot', 'Ort (Drohnenpilot)'),
+    ('datum_pilot', 'Datum (Drohnenpilot)'),
+    ('pilot_signature_email', 'E-Mail (Drohnenpilot)'),
+]
+
+PREFILL_CLEAR_KEYS = {
+    'wetterlage', 'startzeit', 'landezeit', 'flugminuten', 'anzahl_fluege',
+}
 
 
 def get_db():
@@ -258,6 +293,10 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE
             );
+            CREATE TABLE IF NOT EXISTS srg_ue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE
+            );
             CREATE TABLE IF NOT EXISTS drone_holders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
@@ -315,6 +354,9 @@ def init_db():
         if conn.execute('SELECT COUNT(*) FROM redaktionen').fetchone()[0] == 0:
             conn.executemany('INSERT OR IGNORE INTO redaktionen(name) VALUES(?)',
                              [(r,) for r in REDAKTIONEN])
+        for s in SRG_UE_LIST:
+            conn.execute('INSERT OR IGNORE INTO srg_ue(name) VALUES(?)', (s,))
+        conn.execute("INSERT OR IGNORE INTO verwendungszwecke(name) VALUES('Ausbildung')")
         # SRG-Systemhalter (nicht löschbar, user_id=NULL)
         conn.execute("""INSERT OR IGNORE INTO drone_holders(id, user_id, name, address)
             VALUES(1, NULL, 'Schweizer Radio und Fernsehen (SRF)', 'Fernsehstrasse 1-4\n8052 Zürich')""")
@@ -345,9 +387,64 @@ def test_mode_on():
     return get_setting('test_mode', 'false') == 'true'
 
 
+def _user_email(user_id):
+    with get_db() as conn:
+        row = conn.execute(
+            'SELECT COALESCE(NULLIF(u.email, ""), NULLIF(p.pilot_email, ""), u.username) AS email '
+            'FROM users u LEFT JOIN profiles p ON p.user_id = u.id WHERE u.id = ?',
+            (user_id,)).fetchone()
+    return (row['email'] or '').strip().lower() if row else ''
+
+
+def _is_srf_user(user_id):
+    return _user_email(user_id).endswith('@srf.ch')
+
+
+def _is_srf_holder_company(company):
+    return 'Schweizer Radio und Fernsehen' in (company or '')
+
+
+def _parse_email_list(raw):
+    return [a.strip() for a in (raw or '').replace(';', ',').split(',')
+            if a.strip() and '@' in a.strip()]
+
+
+def _validate_form(form_data):
+    errors = []
+    for key, label in MANDATORY_FIELDS:
+        if not str(form_data.get(key, '')).strip():
+            errors.append(label)
+    if form_data.get('ja_confirm') != 'on':
+        errors.append('Bestätigungs-Checkbox')
+    return errors
+
+
+def _lock_pdf_fields(writer):
+    """AcroForm-Felder auf ReadOnly setzen (nicht mehr editierbar)."""
+    try:
+        root = writer._root_object
+        if '/AcroForm' not in root:
+            return
+        acro = root['/AcroForm'].get_object()
+        stack = list(acro.get('/Fields', []))
+        while stack:
+            ref = stack.pop()
+            field = ref.get_object()
+            ff = int(field.get('/Ff', 0)) if field.get('/Ff') is not None else 0
+            field[NameObject('/Ff')] = NumberObject(ff | 1)
+            for kid in field.get('/Kids', []):
+                stack.append(kid)
+    except Exception:
+        pass
+
+
 def send_simple_email(to_addr, subject, body):
     """Verschickt eine einfache Text-Mail über die konfigurierten SMTP-Settings.
-    Wird für Feedback und Passwort-Reset genutzt. Gibt (bool, str) zurück."""
+    to_addr kann kommasepariert mehrere Empfänger enthalten. Gibt (bool, str) zurück."""
+    recipients = _parse_email_list(to_addr)
+    if not recipients:
+        return False, 'Keine gültige Empfängeradresse'
+
     smtp_host = get_setting('smtp_host')
     smtp_port = int(get_setting('smtp_port', '587'))
     smtp_user = get_setting('smtp_user')
@@ -358,7 +455,7 @@ def send_simple_email(to_addr, subject, body):
 
     msg = MIMEMultipart()
     msg['From'] = smtp_from
-    msg['To'] = to_addr
+    msg['To'] = ', '.join(recipients)
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
     try:
@@ -367,7 +464,7 @@ def send_simple_email(to_addr, subject, body):
             server.starttls()
             if smtp_user and smtp_pass:
                 server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_from, [to_addr], msg.as_string())
+            server.sendmail(smtp_from, recipients, msg.as_string())
         return True, 'E-Mail erfolgreich gesendet'
     except Exception as e:
         return False, str(e)
@@ -465,7 +562,7 @@ def fill_pdf(form_data):
         # EVA-Block: E-Mail auf der Linie (Text13), Vorname/Nachname darunter (Info.33)
         'Text13':  form_data.get('eva_signature_email', '') or form_data.get('eva_email', ''),
         # Pilot-Block: NUR die E-Mail auf der Linie (Text15), Vorname/Nachname darunter (Info.34)
-        'Text15':  form_data.get('pilot_email', ''),
+        'Text15':  form_data.get('pilot_signature_email', '') or form_data.get('pilot_email', ''),
 
         # Clear large instruction text fields
         'Info.01': '',
@@ -488,6 +585,14 @@ def fill_pdf(form_data):
         'JA': '/Ja',
     }
 
+    # Grüne Kommentarfelder (Info.*) restlos leeren
+    try:
+        for fname in (reader.get_fields() or {}):
+            if fname.startswith('Info.'):
+                fields[fname] = ''
+    except Exception:
+        pass
+
     # Checkboxes
     for i in range(1, 18):
         checked = form_data.get(f'cb_{i}', 'on') == 'on'
@@ -498,6 +603,8 @@ def fill_pdf(form_data):
             writer.update_page_form_field_values(page, fields, auto_regenerate=False)
         except Exception:
             pass
+
+    _lock_pdf_fields(writer)
 
     drehdatum = form_data.get('drehdatum', today).replace('/', '-')
     pilot = form_data.get('pilot_name', 'Pilot').replace(' ', '_')
@@ -519,7 +626,7 @@ def send_email(form_data, pdf_path, filename):
     smtp_from = get_setting('smtp_from') or smtp_user
 
     if not smtp_host:
-        return False, 'SMTP nicht konfiguriert'
+        return False, 'SMTP nicht konfiguriert', []
 
     drehdatum = form_data.get('drehdatum', '')
     firma = 'SRF'
@@ -561,26 +668,23 @@ def send_email(form_data, pdf_path, filename):
         to_header = test_addr
         cc_list = []
         recipients = [test_addr]
+        display_recipients = [test_addr]
         subject = f"[TEST] {subject}"
     else:
-        to_list = []
-        if form_data.get('rcpt_eng_service', 'on') == 'on':
+        is_srf = _is_srf_holder_company(form_data.get('drone_holder_company', ''))
+        to_list = ['drohnen@srf.ch']
+        if is_srf:
             to_list.append('eng-service@srf.ch')
-        if form_data.get('rcpt_drohnen', 'on') == 'on':
-            to_list.append('drohnen@srf.ch')
         cc_list = []
         if form_data.get('rcpt_cc_eva', 'on') == 'on' and eva_email:
             cc_list.append(eva_email)
         if form_data.get('rcpt_cc_pilot', 'on') == 'on' and pilot_email:
             cc_list.append(pilot_email)
-        for addr in form_data.get('rcpt_extra', '').split(','):
-            addr = addr.strip()
-            if addr and '@' in addr:
-                cc_list.append(addr)
-        if not to_list and not cc_list:
-            return False, 'Keine Empfänger ausgewählt'
+        for addr in _parse_email_list(form_data.get('rcpt_extra', '')):
+            cc_list.append(addr)
         to_header = '; '.join(to_list)
         recipients = to_list + cc_list
+        display_recipients = list(recipients)
 
     msg = MIMEMultipart()
     msg['From'] = smtp_from
@@ -606,9 +710,9 @@ def send_email(form_data, pdf_path, filename):
             if smtp_user and smtp_pass:
                 server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_from, recipients, msg.as_string())
-        return True, 'E-Mail erfolgreich gesendet'
+        return True, 'E-Mail erfolgreich gesendet', display_recipients
     except Exception as e:
-        return False, str(e)
+        return False, str(e), []
 
 
 # ─── Routes ──────────────────────────────────────────────────────────────────
@@ -833,24 +937,40 @@ def feedback():
 @login_required
 def index():
     user_id = session['user_id']
+    is_srf = _is_srf_user(user_id)
+    prefill = {}
+    if request.args.get('continue'):
+        raw = session.pop('form_prefill', None)
+        if raw:
+            prefill = dict(raw)
+            for key in PREFILL_CLEAR_KEYS:
+                prefill[key] = ''
+            prefill['anzahl_fluege'] = '1'
     with get_db() as conn:
         profile = conn.execute('SELECT * FROM profiles WHERE user_id=?', (user_id,)).fetchone()
         aircraft_list = conn.execute(
             'SELECT * FROM aircraft WHERE user_id=? ORDER BY is_default DESC, name',
             (user_id,)).fetchall()
-        drone_holders = conn.execute(
-            'SELECT * FROM drone_holders WHERE user_id=? OR user_id IS NULL '
-            'ORDER BY user_id IS NOT NULL, name',
-            (user_id,)).fetchall()
+        if is_srf:
+            drone_holders = conn.execute(
+                'SELECT * FROM drone_holders WHERE user_id=? OR user_id IS NULL '
+                'ORDER BY user_id IS NOT NULL, name',
+                (user_id,)).fetchall()
+            drones = conn.execute('SELECT * FROM drones ORDER BY name').fetchall()
+        else:
+            drone_holders = conn.execute(
+                'SELECT * FROM drone_holders WHERE user_id=? ORDER BY is_default DESC, name',
+                (user_id,)).fetchall()
+            drones = []
         aircraft_holder_ids = {}
         for row in conn.execute(
             'SELECT ahm.aircraft_id, ahm.holder_id FROM aircraft_holder_map ahm '
             'JOIN aircraft a ON a.id = ahm.aircraft_id WHERE a.user_id=?', (user_id,)):
             aircraft_holder_ids.setdefault(row['aircraft_id'], []).append(row['holder_id'])
-        drones = conn.execute('SELECT * FROM drones ORDER BY name').fetchall()
         sendeformate = [r['name'] for r in conn.execute('SELECT name FROM sendeformate ORDER BY name COLLATE NOCASE').fetchall()]
         verwendungszwecke = [r['name'] for r in conn.execute('SELECT name FROM verwendungszwecke ORDER BY id').fetchall()]
         redaktionen = [r['name'] for r in conn.execute('SELECT name FROM redaktionen ORDER BY name COLLATE NOCASE').fetchall()]
+        srg_ue_list = [r['name'] for r in conn.execute('SELECT name FROM srg_ue ORDER BY id').fetchall()]
     today = date.today().strftime('%Y/%m/%d')
     return render_template('form.html',
                            profile=profile,
@@ -862,7 +982,10 @@ def index():
                            checklist=CHECKLIST_ITEMS,
                            sendeformate=sendeformate,
                            verwendungszwecke=verwendungszwecke,
-                           redaktionen=redaktionen)
+                           redaktionen=redaktionen,
+                           srg_ue_list=srg_ue_list,
+                           is_srf_user=is_srf,
+                           prefill=prefill)
 
 
 @app.route('/submit', methods=['POST'])
@@ -873,14 +996,27 @@ def submit():
     for i in range(1, 18):
         if f'cb_{i}' not in form_data:
             form_data[f'cb_{i}'] = 'off'
-    # SRF-Systemhalter: Pflichtempfänger erzwingen (disabled Checkboxen fehlen im POST-Body)
-    if 'Schweizer Radio und Fernsehen' in form_data.get('drone_holder_company', ''):
-        form_data['rcpt_eng_service'] = 'on'
-        form_data['rcpt_drohnen']     = 'on'
-        form_data['rcpt_cc_eva']      = 'on'
     for key in ('rcpt_eng_service', 'rcpt_drohnen', 'rcpt_cc_eva', 'rcpt_cc_pilot'):
         if key not in form_data:
             form_data[key] = 'off'
+
+    if not _is_srf_user(session['user_id']) and _is_srf_holder_company(form_data.get('drone_holder_company', '')):
+        flash('SRF-Drohnenhalter und -Drohnen sind nur für @srf.ch-Nutzer verfügbar.', 'danger')
+        return redirect(url_for('index'))
+
+    if form_data.get('verwendungszweck') == 'Ausbildung':
+        form_data['redaktion'] = 'Ausbildung'
+        form_data['sendeformat'] = 'Ausbildung'
+
+    errors = _validate_form(form_data)
+    if errors:
+        flash('Pflichtfelder fehlen: ' + ', '.join(errors), 'danger')
+        return redirect(url_for('index'))
+
+    is_srf_holder = _is_srf_holder_company(form_data.get('drone_holder_company', ''))
+    form_data['rcpt_drohnen'] = 'on'
+    if is_srf_holder:
+        form_data['rcpt_eng_service'] = 'on'
 
     try:
         pdf_path, filename = fill_pdf(form_data)
@@ -890,6 +1026,9 @@ def submit():
 
     # Protokoll-Counter erhöhen (in DB, unabhängig vom Dateisystem)
     set_setting('form_submit_count', str(int(get_setting('form_submit_count', '0')) + 1))
+
+    session['form_prefill'] = {k: v for k, v in form_data.items()
+                               if not k.startswith('cb_') and k not in ('ja_confirm', 'send_email')}
 
     sf = form_data.get('sendeformat', '').strip()
     if sf:
@@ -904,13 +1043,15 @@ def submit():
 
     email_sent = False
     email_msg = ''
+    email_recipients = []
     if form_data.get('send_email') == 'on':
-        email_sent, email_msg = send_email(form_data, pdf_path, filename)
+        email_sent, email_msg, email_recipients = send_email(form_data, pdf_path, filename)
 
     return render_template('success.html',
                            filename=filename,
                            email_sent=email_sent,
                            email_msg=email_msg,
+                           email_recipients=email_recipients,
                            smtp_configured=bool(get_setting('smtp_host')))
 
 
@@ -1126,6 +1267,8 @@ def profile():
         drone_holders = conn.execute(
             'SELECT * FROM drone_holders WHERE user_id=? OR user_id IS NULL '
             'ORDER BY user_id IS NOT NULL, name',
+            (user_id,)).fetchall() if _is_srf_user(user_id) else conn.execute(
+            'SELECT * FROM drone_holders WHERE user_id=? ORDER BY is_default DESC, name',
             (user_id,)).fetchall()
         aircraft_holder_ids = {}
         for row in conn.execute(
@@ -1339,6 +1482,37 @@ def admin():
                 conn.commit()
             flash('Redaktion gelöscht.', 'success')
 
+        elif action == 'add_srg_ue':
+            name = request.form.get('srg_name', '').strip()
+            if name:
+                with get_db() as conn:
+                    try:
+                        conn.execute('INSERT INTO srg_ue(name) VALUES(?)', (name,))
+                        conn.commit()
+                        flash('SRG-UE hinzugefügt.', 'success')
+                    except Exception:
+                        flash('SRG-UE bereits vorhanden.', 'danger')
+            else:
+                flash('Name ist erforderlich.', 'danger')
+
+        elif action == 'edit_srg_ue':
+            sid = request.form.get('srg_id')
+            name = request.form.get('srg_name', '').strip()
+            if name:
+                with get_db() as conn:
+                    conn.execute('UPDATE srg_ue SET name=? WHERE id=?', (name, sid))
+                    conn.commit()
+                flash('SRG-UE aktualisiert.', 'success')
+            else:
+                flash('Name ist erforderlich.', 'danger')
+
+        elif action == 'delete_srg_ue':
+            sid = request.form.get('srg_id')
+            with get_db() as conn:
+                conn.execute('DELETE FROM srg_ue WHERE id=?', (sid,))
+                conn.commit()
+            flash('SRG-UE gelöscht.', 'success')
+
         section = request.form.get('_section', '')
         target = url_for('admin') + (f'?open={section}' if section else '')
         return redirect(target)
@@ -1354,6 +1528,7 @@ def admin():
         sendeformate = conn.execute('SELECT * FROM sendeformate ORDER BY name COLLATE NOCASE').fetchall()
         verwendungszwecke = conn.execute('SELECT * FROM verwendungszwecke ORDER BY id').fetchall()
         redaktionen = conn.execute('SELECT * FROM redaktionen ORDER BY name COLLATE NOCASE').fetchall()
+        srg_ue = conn.execute('SELECT * FROM srg_ue ORDER BY id').fetchall()
     smtp_settings = {k: get_setting(k) for k in ['smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from']}
     test_settings = {
         'test_mode': test_mode_on(),
@@ -1367,7 +1542,7 @@ def admin():
     return render_template('admin.html', users=users, pending=pending, smtp=smtp_settings,
                            test=test_settings, notify=notify_settings, drones=drones,
                            sendeformate=sendeformate, verwendungszwecke=verwendungszwecke,
-                           redaktionen=redaktionen, form_count=form_count)
+                           redaktionen=redaktionen, srg_ue=srg_ue, form_count=form_count)
 
 
 def _cleanup_old_pdfs(days=90):

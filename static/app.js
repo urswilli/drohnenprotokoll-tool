@@ -3,6 +3,15 @@
 // ── Geolocation + Weather + Reverse Geocoding ─────────────────────────────
 
 const btn = document.getElementById('btnLocation');
+const statusTopBox = document.getElementById('locationStatusTop');
+const statusTopText = document.getElementById('locationStatusTopText');
+const spinnerTop = document.getElementById('locationSpinnerTop');
+
+const weatherStatusBox = document.getElementById('weatherStatus');
+const weatherStatusText = document.getElementById('weatherStatusText');
+const weatherSpinner = document.getElementById('weatherSpinner');
+
+// Legacy status in Drehort section (map picker etc.)
 const statusBox = document.getElementById('locationStatus');
 const statusText = document.getElementById('locationStatusText');
 const spinner = document.getElementById('locationSpinner');
@@ -31,6 +40,20 @@ function setTextarea(id, value) {
   }
 }
 
+function showStatusTop(msg, done = false) {
+  if (!statusTopBox) return;
+  statusTopBox.classList.remove('d-none');
+  if (statusTopText) statusTopText.textContent = msg;
+  if (spinnerTop) spinnerTop.classList.toggle('d-none', done);
+}
+
+function showWeatherStatus(msg, done = false) {
+  if (!weatherStatusBox) return;
+  weatherStatusBox.classList.remove('d-none');
+  if (weatherStatusText) weatherStatusText.textContent = msg;
+  if (weatherSpinner) weatherSpinner.classList.toggle('d-none', done);
+}
+
 function showStatus(msg, done = false) {
   if (!statusBox) return;
   statusBox.classList.remove('d-none');
@@ -38,23 +61,19 @@ function showStatus(msg, done = false) {
   if (spinner) spinner.classList.toggle('d-none', done);
 }
 
-function hideStatus() {
-  if (statusBox) statusBox.classList.add('d-none');
-}
-
 function requestLocation() {
   if (!navigator.geolocation) {
     alert('Ihr Browser unterstützt keine Geolokalisierung.');
     return;
   }
-  showStatus('Standort wird ermittelt…');
+  showStatusTop('Standort wird ermittelt…');
   if (btn) btn.disabled = true;
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
-      showStatus('Standort gefunden – Wetter und Adresse werden abgerufen…');
+      showStatusTop('Standort gefunden – Wetter und Adresse werden abgerufen…');
 
       fetch(`/api/location-data?lat=${lat}&lon=${lon}`)
         .then(r => r.json())
@@ -64,12 +83,10 @@ function requestLocation() {
           setField('ort_eva', data.location_short || data.location);
           setField('ort_pilot', data.location_short || data.location);
           setTextarea('wetterlage', data.weather);
-          showStatus('Standort, Koordinaten und Wetterlage erfolgreich ermittelt.', true);
-          setTimeout(hideStatus, 4000);
+          showStatusTop('Standort, Koordinaten und Wetterlage erfolgreich ermittelt.', true);
         })
         .catch(() => {
-          showStatus('Fehler beim Abrufen der Wetterdaten.', true);
-          setTimeout(hideStatus, 4000);
+          showStatusTop('Fehler beim Abrufen der Wetterdaten.', true);
         })
         .finally(() => {
           if (btn) btn.disabled = false;
@@ -79,8 +96,7 @@ function requestLocation() {
       let msg = 'Standort konnte nicht ermittelt werden.';
       if (err.code === 1) msg = 'Standortzugriff verweigert. Bitte in Browser-Einstellungen erlauben.';
       if (err.code === 2) msg = 'Standort nicht verfügbar.';
-      showStatus(msg, true);
-      setTimeout(hideStatus, 5000);
+      showStatusTop(msg, true);
       if (btn) btn.disabled = false;
     },
     { enableHighAccuracy: true, timeout: 15000 }
@@ -96,7 +112,7 @@ if (btn) btn.addEventListener('click', requestLocation);
   if (!btnW) return;
   btnW.addEventListener('click', function () {
     if (!navigator.geolocation) { alert('Geolokalisierung nicht verfügbar.'); return; }
-    showStatus('Wetterdaten werden ermittelt…');
+    showWeatherStatus('Wetterdaten werden ermittelt…');
     btnW.disabled = true;
     navigator.geolocation.getCurrentPosition(
       function (pos) {
@@ -104,18 +120,15 @@ if (btn) btn.addEventListener('click', requestLocation);
           .then(function (r) { return r.json(); })
           .then(function (data) {
             setTextarea('wetterlage', data.weather);
-            showStatus('Wetterlage erfolgreich ermittelt.', true);
-            setTimeout(hideStatus, 4000);
+            showWeatherStatus('Wetterlage erfolgreich ermittelt.', true);
           })
           .catch(function () {
-            showStatus('Fehler beim Abrufen der Wetterdaten.', true);
-            setTimeout(hideStatus, 4000);
+            showWeatherStatus('Fehler beim Abrufen der Wetterdaten.', true);
           })
           .finally(function () { btnW.disabled = false; });
       },
       function () {
-        showStatus('Standort konnte nicht ermittelt werden.', true);
-        setTimeout(hideStatus, 5000);
+        showWeatherStatus('Standort konnte nicht ermittelt werden.', true);
         btnW.disabled = false;
       },
       { enableHighAccuracy: false, timeout: 10000 }
@@ -142,7 +155,6 @@ if (aircraftSelect) {
     });
   }
   aircraftSelect.addEventListener('change', fillAircraftFields);
-  // Apply default selection on load
   if (aircraftSelect.value) fillAircraftFields();
 }
 
