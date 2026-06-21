@@ -113,8 +113,89 @@
 (function() {
   var savedScrollY = 0;
   var navEl = document.querySelector('nav.navbar');
+  var navDebugOn = false;
+  var navDebugEvents = [];
+  var navDebugPre = null;
+  try {
+    navDebugOn = new URLSearchParams(location.search).get('navdebug') === '1';
+  } catch (_) {}
+
+  function navDebugSnapshot(reason, extra) {
+    var active = document.activeElement;
+    return {
+      t: new Date().toISOString().slice(11, 23),
+      reason: reason,
+      path: location.pathname + location.search + location.hash,
+      bodyClass: document.body.className || '',
+      modalShow: document.querySelectorAll('.modal.show').length,
+      backdrop: document.querySelectorAll('.modal-backdrop').length,
+      activeTag: active ? active.tagName : '',
+      activeId: active ? active.id : '',
+      extra: extra || {},
+    };
+  }
+
+  function navDebugRender() {
+    if (!navDebugOn || !navDebugPre) return;
+    navDebugPre.textContent = navDebugEvents
+      .slice(-12)
+      .map(function(e) { return JSON.stringify(e); })
+      .join('\n');
+  }
+
+  function navDebugPush(reason, extra) {
+    if (!navDebugOn) return;
+    var entry = navDebugSnapshot(reason, extra);
+    navDebugEvents.push(entry);
+    if (navDebugEvents.length > 200) navDebugEvents = navDebugEvents.slice(-200);
+    window.__navdebug = { events: navDebugEvents };
+    navDebugRender();
+    try { console.debug('[navdebug]', entry); } catch (_) {}
+  }
+
+  function initNavDebugPanel() {
+    if (!navDebugOn || document.getElementById('navDebugPanel')) return;
+    var panel = document.createElement('div');
+    panel.id = 'navDebugPanel';
+    panel.style.position = 'fixed';
+    panel.style.right = '10px';
+    panel.style.bottom = '10px';
+    panel.style.width = 'min(520px, 96vw)';
+    panel.style.maxHeight = '42vh';
+    panel.style.zIndex = '99999';
+    panel.style.background = 'rgba(20, 20, 20, 0.92)';
+    panel.style.color = '#f5f5f5';
+    panel.style.border = '1px solid rgba(255,255,255,0.25)';
+    panel.style.borderRadius = '8px';
+    panel.style.padding = '8px';
+    panel.style.font = '11px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+    panel.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+      '<strong>navdebug=1</strong><span style="opacity:.8">window.__navdebug.events</span></div>' +
+      '<pre style="margin:0;white-space:pre-wrap;overflow:auto;max-height:34vh;" id="navDebugPre"></pre>';
+    document.body.appendChild(panel);
+    navDebugPre = document.getElementById('navDebugPre');
+    navDebugRender();
+  }
+
   document.addEventListener('show.bs.modal', function() { savedScrollY = window.scrollY; });
   document.addEventListener('hidden.bs.modal', function() { window.scrollTo(0, savedScrollY); });
+  if (navDebugOn) {
+    initNavDebugPanel();
+    navDebugPush('navdebug-enabled', { ua: navigator.userAgent });
+    window.addEventListener('error', function(e) {
+      navDebugPush('window-error', {
+        msg: e.message || '',
+        file: e.filename || '',
+        line: e.lineno || 0,
+      });
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      navDebugPush('promise-rejection', {
+        reason: String(e.reason || ''),
+      });
+    });
+  }
 
   function refreshNavZIndex() {
     if (!navEl) return;
@@ -156,6 +237,7 @@
   function scheduleCleanup() {
     cleanupOrphanModals();
     refreshNavZIndex();
+    navDebugPush('scheduleCleanup');
     [0, 50, 100, 500, 1000, 2000].forEach(function(ms) {
       setTimeout(function() {
         cleanupOrphanModals();
@@ -175,6 +257,7 @@
   if (typeof MutationObserver !== 'undefined') {
     new MutationObserver(function() {
       if (document.querySelector('.modal-backdrop') && !document.querySelector('.modal.show')) {
+        navDebugPush('mutation-stale-backdrop');
         cleanupOrphanModals();
       }
       refreshNavZIndex();
@@ -182,6 +265,7 @@
   }
 
   document.getElementById('changelogBadgeBtn')?.addEventListener('click', function() {
+    navDebugPush('changelog-open');
     var el = document.getElementById('changelogModal');
     if (!el) {
       var tpl = document.getElementById('changelogModalTpl');
@@ -211,12 +295,16 @@
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var href = link.getAttribute('href');
     if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+    navDebugPush('nav-click', { href: href, targetTag: e.target && e.target.tagName });
     cleanupOrphanModals();
     var before = location.pathname + location.search + location.hash;
     setTimeout(function() {
       var after = location.pathname + location.search + location.hash;
       if (after === before && document.visibilityState === 'visible') {
+        navDebugPush('nav-fallback-location-assign', { href: href });
         location.assign(link.href);
+      } else {
+        navDebugPush('nav-native-navigation-ok', { href: href });
       }
     }, 180);
   }, true);
