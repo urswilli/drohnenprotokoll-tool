@@ -51,10 +51,8 @@ OUTPUT_DIR = os.path.join(DATA_DIR, 'output')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-def _get_version():
-    """Versionsstring 'Beta 0.X', wobei X die fortlaufende Commit-Anzahl ist.
-    Im Docker-Image kommt die Zahl aus der Umgebungsvariable APP_VERSION
-    (beim Build von GitHub Actions gesetzt); lokal wird sie aus Git ermittelt."""
+def _get_version_count():
+    """Liefert die fortlaufende Commit-Anzahl (ohne Merge-Commits) als String."""
     n = os.environ.get('APP_VERSION', '').strip()
     if not n:
         try:
@@ -64,7 +62,7 @@ def _get_version():
                 cwd=BASE_DIR, stderr=subprocess.DEVNULL).decode().strip()
         except Exception:
             n = ''
-    return f'Beta 0.{n}' if n else 'Beta 0.x'
+    return n
 
 
 def _get_changelog():
@@ -137,13 +135,19 @@ def _get_changelog():
         return []
 
 
-APP_VERSION = _get_version()
+APP_VERSION_COUNT = _get_version_count()
+APP_VERSION = f'Beta 0.{APP_VERSION_COUNT}' if APP_VERSION_COUNT else 'Beta 0.x'
+STATIC_ASSET_VERSION = APP_VERSION_COUNT or 'dev'
 CHANGELOG = _get_changelog()
 
 
 @app.context_processor
 def inject_version():
-    return {'app_version': APP_VERSION, 'changelog': CHANGELOG}
+    return {
+        'app_version': APP_VERSION,
+        'changelog': CHANGELOG,
+        'static_asset_version': STATIC_ASSET_VERSION,
+    }
 
 WEATHER_CODES = {
     0: 'Klarer Himmel', 1: 'Überwiegend klar', 2: 'Teilweise bewölkt', 3: 'Bedeckt',

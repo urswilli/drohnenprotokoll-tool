@@ -6,7 +6,7 @@
   <title>{% block title %}Drohnenprotokoll SRG{% endblock %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css', v=static_asset_version) }}" rel="stylesheet">
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -108,7 +108,7 @@
 {% block modals %}{% endblock %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js', v=static_asset_version) }}"></script>
 <script>
 (function() {
   var savedScrollY = 0;
@@ -142,13 +142,14 @@
 
   function scheduleCleanup() {
     cleanupOrphanModals();
-    [0, 50, 100, 500].forEach(function(ms) {
+    [0, 50, 100, 500, 1000, 2000].forEach(function(ms) {
       setTimeout(cleanupOrphanModals, ms);
     });
   }
 
   document.addEventListener('DOMContentLoaded', scheduleCleanup);
   window.addEventListener('load', scheduleCleanup);
+  window.addEventListener('pagehide', cleanupOrphanModals);
   window.addEventListener('pageshow', function(e) {
     scheduleCleanup();
     if (e.persisted) setTimeout(scheduleCleanup, 0);
@@ -172,6 +173,23 @@
     }
     bootstrap.Modal.getOrCreateInstance(el).show();
   });
+
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a.nav-link[href]');
+    if (!link) return;
+    if (e.defaultPrevented || e.button !== 0) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var href = link.getAttribute('href');
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+    cleanupOrphanModals();
+    var before = location.pathname + location.search + location.hash;
+    setTimeout(function() {
+      var after = location.pathname + location.search + location.hash;
+      if (after === before && document.visibilityState === 'visible') {
+        location.assign(link.href);
+      }
+    }, 180);
+  }, true);
 })();
 </script>
 {% block scripts %}{% endblock %}
