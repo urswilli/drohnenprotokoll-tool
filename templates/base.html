@@ -112,8 +112,21 @@
 <script>
 (function() {
   var savedScrollY = 0;
+  var navEl = document.querySelector('nav.navbar');
   document.addEventListener('show.bs.modal', function() { savedScrollY = window.scrollY; });
   document.addEventListener('hidden.bs.modal', function() { window.scrollTo(0, savedScrollY); });
+
+  function refreshNavZIndex() {
+    if (!navEl) return;
+    if (document.querySelector('.modal.show')) {
+      navEl.style.removeProperty('position');
+      navEl.style.removeProperty('z-index');
+      return;
+    }
+    // If a stale backdrop remains, keep navbar clickable above it.
+    navEl.style.position = 'relative';
+    navEl.style.zIndex = '2000';
+  }
 
   function cleanupOrphanModals() {
     var openModal = document.querySelector('.modal.show');
@@ -142,8 +155,12 @@
 
   function scheduleCleanup() {
     cleanupOrphanModals();
+    refreshNavZIndex();
     [0, 50, 100, 500, 1000, 2000].forEach(function(ms) {
-      setTimeout(cleanupOrphanModals, ms);
+      setTimeout(function() {
+        cleanupOrphanModals();
+        refreshNavZIndex();
+      }, ms);
     });
   }
 
@@ -160,6 +177,7 @@
       if (document.querySelector('.modal-backdrop') && !document.querySelector('.modal.show')) {
         cleanupOrphanModals();
       }
+      refreshNavZIndex();
     }).observe(document.body, { childList: true, subtree: false });
   }
 
@@ -174,8 +192,20 @@
     bootstrap.Modal.getOrCreateInstance(el).show();
   });
 
+  function _getNavLinkFromEvent(e) {
+    var direct = e.target.closest && e.target.closest('a.nav-link[href]');
+    if (direct) return direct;
+    if (typeof document.elementsFromPoint !== 'function') return null;
+    var stack = document.elementsFromPoint(e.clientX, e.clientY) || [];
+    for (var i = 0; i < stack.length; i++) {
+      var el = stack[i];
+      if (el && el.matches && el.matches('a.nav-link[href]')) return el;
+    }
+    return null;
+  }
+
   document.addEventListener('click', function(e) {
-    var link = e.target.closest('a.nav-link[href]');
+    var link = _getNavLinkFromEvent(e);
     if (!link) return;
     if (e.defaultPrevented || e.button !== 0) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
