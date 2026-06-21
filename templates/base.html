@@ -114,6 +114,19 @@
   var savedScrollY = 0;
   document.addEventListener('show.bs.modal', function() { savedScrollY = window.scrollY; });
   document.addEventListener('hidden.bs.modal', function() { window.scrollTo(0, savedScrollY); });
+
+  function cleanupOrphanModals() {
+    document.querySelectorAll('.modal.show').forEach(function(el) {
+      var inst = bootstrap.Modal.getInstance(el);
+      if (inst) inst.hide();
+    });
+    document.querySelectorAll('.modal-backdrop').forEach(function(el) { el.remove(); });
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('padding-right');
+  }
+  document.addEventListener('DOMContentLoaded', cleanupOrphanModals);
+  window.addEventListener('pageshow', cleanupOrphanModals);
 })();
 </script>
 {% block scripts %}{% endblock %}

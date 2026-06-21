@@ -378,6 +378,15 @@ def init_db():
             FROM users u
             WHERE NOT EXISTS (SELECT 1 FROM profiles p WHERE p.user_id = u.id)
         """)
+        conn.execute("""
+            INSERT INTO drone_holders(user_id, name, address, is_default)
+            SELECT p.user_id,
+                   COALESCE(NULLIF(p.pilot_company, ''), p.pilot_name, 'Drohnenhalter'),
+                   COALESCE(p.pilot_company_address, ''),
+                   1
+            FROM profiles p
+            WHERE NOT EXISTS (SELECT 1 FROM drone_holders d WHERE d.user_id = p.user_id)
+        """)
         conn.commit()
 
 
@@ -412,6 +421,20 @@ def _is_srf_user(user_id):
 
 def _is_srf_holder_company(company):
     return 'Schweizer Radio und Fernsehen' in (company or '')
+
+
+def _ensure_user_holder(conn, user_id):
+    """Mindestens ein eigener Drohnenhalter pro User (Neuregistrierung/Backfill)."""
+    if conn.execute('SELECT 1 FROM drone_holders WHERE user_id=?', (user_id,)).fetchone():
+        return
+    prof = conn.execute(
+        'SELECT pilot_name, pilot_company, pilot_company_address FROM profiles WHERE user_id=?',
+        (user_id,)).fetchone()
+    name = ((prof['pilot_company'] if prof else '') or (prof['pilot_name'] if prof else '') or 'Drohnenhalter').strip()
+    addr = ((prof['pilot_company_address'] if prof else '') or '').strip()
+    conn.execute(
+        'INSERT INTO drone_holders(user_id, name, address, is_default) VALUES(?,?,?,1)',
+        (user_id, name, addr))
 
 
 def _parse_email_list(raw):
@@ -747,7 +770,7 @@ def login():
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['is_admin'] = bool(user['is_admin'])
-            return redirect(url_for('index'))
+            return redirect(url_for('index'), code=303)
         flash('Ungültiger Benutzername oder Passwort.', 'danger')
     return render_template('login.html', test_mode=test_mode_on())
 
@@ -783,6 +806,7 @@ def register():
                     conn.execute(
                         'INSERT INTO profiles(user_id,pilot_name,pilot_email) VALUES(?,?,?)',
                         (new_id, name, email))
+                    _ensure_user_holder(conn, new_id)
                     conn.commit()
 
                 # Bestätigungsmail an den Nutzer (best-effort)
@@ -908,6 +932,7 @@ def approve_via_link(token):
             flash(f'Benutzer {addr} ist bereits freigeschaltet.', 'info')
             return redirect(url_for('admin') if session.get('is_admin') else url_for('login'))
         conn.execute('UPDATE users SET is_approved=1 WHERE id=?', (uid,))
+        _ensure_user_holder(conn, uid)
         conn.commit()
 
     _notify_user_approved(addr)
@@ -1332,6 +1357,7 @@ def admin():
                             conn.execute(
                                 'INSERT INTO profiles(user_id,pilot_name,pilot_email) VALUES(?,?,?)',
                                 (cur.lastrowid, name, email))
+                            _ensure_user_holder(conn, cur.lastrowid)
                             conn.commit()
                         flash(f'Benutzer {username!r} erstellt.', 'success')
                     except sqlite3.IntegrityError:
@@ -1390,6 +1416,7 @@ def admin():
             uid = request.form.get('uid')
             with get_db() as conn:
                 conn.execute('UPDATE users SET is_approved=1 WHERE id=?', (uid,))
+                _ensure_user_holder(conn, uid)
                 row = conn.execute('SELECT username, email FROM users WHERE id=?', (uid,)).fetchone()
                 conn.commit()
             if row:

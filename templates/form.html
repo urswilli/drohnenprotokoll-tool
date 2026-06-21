@@ -1,10 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Drohnenprotokoll ausfüllen{% endblock %}
 
-{% block head %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css">
-{% endblock %}
-
 {% block content %}
 {% set pf = prefill|default({}) %}
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
@@ -625,6 +621,7 @@ const holderData = {
   '{{ h.id }}': { company: {{ h.name | tojson }}, address: {{ h.address | tojson }} },
   {% endfor %}
 };
+const isSrfUser = {{ is_srf_user|tojson }};
 
 // Firmenzugehörigkeit auto-fill: Halter ist immer Quelle; manuelles Tippen sperrt Overwrite
 const pilotCompanyEl = document.querySelector('[name="pilot_company"]');
@@ -632,19 +629,36 @@ let pilotCompanyManual = false;
 pilotCompanyEl?.addEventListener('input', function(e) { if (e.isTrusted) pilotCompanyManual = true; });
 
 function updateHolder() {
-  const hid = holderSelect ? holderSelect.value : String(Object.keys(holderData)[0] || '1');
+  const keys = Object.keys(holderData);
+  const engHidden = document.getElementById('rcptEngServiceHidden');
+  const engRow = document.getElementById('rcptEngServiceRow');
+  const companyEl = document.getElementById('holderCompanyDisplay');
+  const addressEl = document.getElementById('holderAddressDisplay');
+  const companyHid = document.getElementById('holderCompanyHidden');
+  const addressHid = document.getElementById('holderAddressHidden');
+
+  if (!keys.length) {
+    if (companyEl) companyEl.value = '';
+    if (addressEl) addressEl.value = '';
+    if (companyHid) companyHid.value = '';
+    if (addressHid) addressHid.value = '';
+    if (engHidden) engHidden.value = 'off';
+    if (engRow) engRow.classList.add('d-none');
+    filterDrones(null);
+    return;
+  }
+
+  const hid = holderSelect ? holderSelect.value : String(keys[0]);
   const data = holderData[hid] || Object.values(holderData)[0] || {};
   const company = data.company || '';
   const address = data.address || '';
-  document.getElementById('holderCompanyDisplay').value = company;
-  document.getElementById('holderAddressDisplay').value = address;
-  document.getElementById('holderCompanyHidden').value  = company;
-  document.getElementById('holderAddressHidden').value  = address;
+  if (companyEl) companyEl.value = company;
+  if (addressEl) addressEl.value = address;
+  if (companyHid) companyHid.value = company;
+  if (addressHid) addressHid.value = address;
   if (pilotCompanyEl && !pilotCompanyManual) setVal(pilotCompanyEl, company);
   filterDrones(hid);
-  const isSRF = (String(hid) === '1');
-  const engHidden = document.getElementById('rcptEngServiceHidden');
-  const engRow = document.getElementById('rcptEngServiceRow');
+  const isSRF = isSrfUser && String(hid) === '1';
   if (engHidden) engHidden.value = isSRF ? 'on' : 'off';
   if (engRow) engRow.classList.toggle('d-none', !isSRF);
 }
@@ -652,7 +666,7 @@ function updateHolder() {
 function filterDrones(hid) {
   const sel = document.getElementById('droneSelect');
   if (!sel) return;
-  const isSRF = (String(hid) === '1');
+  const isSRF = isSrfUser && hid !== null && String(hid) === '1';
   // Nur eigene Drohnen (myDronesGroup) filtern – SRG-Drohnen nicht anfassen
   sel.querySelectorAll('#myDronesGroup option').forEach(opt => {
     const ids = (opt.dataset.holderIds || '').split(',').map(s => s.trim());
@@ -922,12 +936,22 @@ syncEva();
     function _open() {
       bootstrap.Modal.getOrCreateInstance(_mapModalEl).show();
     }
+    function _loadScript() {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+      s.onload = _open;
+      s.onerror = function() { alert('Karte konnte nicht geladen werden. Bitte Internetverbindung prüfen.'); };
+      document.head.appendChild(s);
+    }
     if (typeof L !== 'undefined') { _open(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js';
-    s.onload = _open;
-    s.onerror = function() { alert('Karte konnte nicht geladen werden. Bitte Internetverbindung prüfen.'); };
-    document.head.appendChild(s);
+    if (!document.getElementById('leaflet-css')) {
+      const l = document.createElement('link');
+      l.id = 'leaflet-css';
+      l.rel = 'stylesheet';
+      l.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(l);
+    }
+    _loadScript();
   });
 })();
 // ────────────────────────────────────────────────────────────────────────────
