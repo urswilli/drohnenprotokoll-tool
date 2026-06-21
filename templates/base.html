@@ -20,7 +20,7 @@
     <button type="button"
             class="badge bg-light text-dark fw-normal border-0 ms-1 align-middle"
             style="font-size:.65em; cursor:pointer;"
-            data-bs-toggle="modal" data-bs-target="#changelogModal"
+            id="changelogBadgeBtn"
             title="Changelog anzeigen">{{ app_version }}</button>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
       <span class="navbar-toggler-icon"></span>
@@ -50,6 +50,46 @@
     </div>
   </div>
 </nav>
+<template id="changelogModalTpl">
+  <div class="modal fade" id="changelogModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-srg text-white">
+          <h5 class="modal-title"><i class="bi bi-card-list me-2"></i>Changelog <span class="opacity-75 fw-normal ms-1">{{ app_version }}</span></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+        </div>
+        <div class="modal-body">
+          {% if changelog %}
+          <ul class="list-group list-group-flush">
+            {% for e in changelog %}
+            <li class="list-group-item px-0">
+              <div class="d-flex align-items-baseline gap-2 flex-wrap">
+                <span class="fw-bold small">Beta 0.{{ e.version }}</span>
+                {% if e.type %}
+                <span class="badge rounded-pill
+                  {% if e.type == 'feat' %}bg-success
+                  {% elif e.type == 'fix' %}bg-danger
+                  {% elif e.type == 'style' %}bg-info text-dark
+                  {% elif e.type in ('docs', 'chore') %}bg-secondary
+                  {% else %}bg-warning text-dark{% endif %}">{{ e.type }}</span>
+                {% endif %}
+                <span class="text-muted small ms-auto">{{ e.date }}</span>
+              </div>
+              <div class="small mt-1">{{ e.subject }}</div>
+              {% if e.body %}
+              <p class="small text-muted mt-1 mb-0" style="white-space: pre-line">{{ e.body }}</p>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="text-muted mb-0">Keine Changelog-Einträge verfügbar.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 {% endif %}
 
 <div class="container-xl py-4">
@@ -65,46 +105,6 @@
   {% block content %}{% endblock %}
 </div>
 
-<!-- Changelog-Modal (Trigger: Versions-Badge in der Navbar) -->
-<div class="modal fade" id="changelogModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header bg-srg text-white">
-        <h5 class="modal-title"><i class="bi bi-card-list me-2"></i>Changelog <span class="opacity-75 fw-normal ms-1">{{ app_version }}</span></h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schliessen"></button>
-      </div>
-      <div class="modal-body">
-        {% if changelog %}
-        <ul class="list-group list-group-flush">
-          {% for e in changelog %}
-          <li class="list-group-item px-0">
-            <div class="d-flex align-items-baseline gap-2 flex-wrap">
-              <span class="fw-bold small">Beta 0.{{ e.version }}</span>
-              {% if e.type %}
-              <span class="badge rounded-pill
-                {% if e.type == 'feat' %}bg-success
-                {% elif e.type == 'fix' %}bg-danger
-                {% elif e.type == 'style' %}bg-info text-dark
-                {% elif e.type in ('docs', 'chore') %}bg-secondary
-                {% else %}bg-warning text-dark{% endif %}">{{ e.type }}</span>
-              {% endif %}
-              <span class="text-muted small ms-auto">{{ e.date }}</span>
-            </div>
-            <div class="small mt-1">{{ e.subject }}</div>
-            {% if e.body %}
-            <p class="small text-muted mt-1 mb-0" style="white-space: pre-line">{{ e.body }}</p>
-            {% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="text-muted mb-0">Keine Changelog-Einträge verfügbar.</p>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-</div>
-
 {% block modals %}{% endblock %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -116,6 +116,14 @@
   document.addEventListener('hidden.bs.modal', function() { window.scrollTo(0, savedScrollY); });
 
   function cleanupOrphanModals() {
+    var openModal = document.querySelector('.modal.show');
+    if (!openModal && document.querySelector('.modal-backdrop')) {
+      document.querySelectorAll('.modal-backdrop').forEach(function(el) { el.remove(); });
+      document.body.classList.remove('modal-open');
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('padding-right');
+      return;
+    }
     document.querySelectorAll('.modal.show').forEach(function(el) {
       var inst = bootstrap.Modal.getInstance(el);
       if (inst) {
@@ -131,11 +139,38 @@
     document.body.style.removeProperty('overflow');
     document.body.style.removeProperty('padding-right');
   }
-  document.addEventListener('DOMContentLoaded', cleanupOrphanModals);
-  window.addEventListener('load', cleanupOrphanModals);
-  window.addEventListener('pageshow', function(e) {
+
+  function scheduleCleanup() {
     cleanupOrphanModals();
-    if (e.persisted) setTimeout(cleanupOrphanModals, 0);
+    [0, 50, 100, 500].forEach(function(ms) {
+      setTimeout(cleanupOrphanModals, ms);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', scheduleCleanup);
+  window.addEventListener('load', scheduleCleanup);
+  window.addEventListener('pageshow', function(e) {
+    scheduleCleanup();
+    if (e.persisted) setTimeout(scheduleCleanup, 0);
+  });
+
+  if (typeof MutationObserver !== 'undefined') {
+    new MutationObserver(function() {
+      if (document.querySelector('.modal-backdrop') && !document.querySelector('.modal.show')) {
+        cleanupOrphanModals();
+      }
+    }).observe(document.body, { childList: true, subtree: false });
+  }
+
+  document.getElementById('changelogBadgeBtn')?.addEventListener('click', function() {
+    var el = document.getElementById('changelogModal');
+    if (!el) {
+      var tpl = document.getElementById('changelogModalTpl');
+      if (!tpl) return;
+      el = tpl.content.firstElementChild.cloneNode(true);
+      document.body.appendChild(el);
+    }
+    bootstrap.Modal.getOrCreateInstance(el).show();
   });
 })();
 </script>

@@ -423,10 +423,26 @@ def _is_srf_holder_company(company):
     return 'Schweizer Radio und Fernsehen' in (company or '')
 
 
+def _ensure_user_profile(conn, user_id):
+    """Profil-Zeile sicherstellen (Backfill für ältere User)."""
+    if conn.execute('SELECT 1 FROM profiles WHERE user_id=?', (user_id,)).fetchone():
+        return
+    user = conn.execute(
+        'SELECT username, email FROM users WHERE id=?', (user_id,)).fetchone()
+    if not user:
+        return
+    email = (user['email'] or user['username'] or '').strip()
+    name = (email.split('@')[0] if email else user['username']) or user['username']
+    conn.execute(
+        'INSERT INTO profiles(user_id, pilot_name, pilot_email) VALUES(?,?,?)',
+        (user_id, name, email))
+
+
 def _ensure_user_holder(conn, user_id):
     """Mindestens ein eigener Drohnenhalter pro User (Neuregistrierung/Backfill)."""
     if conn.execute('SELECT 1 FROM drone_holders WHERE user_id=?', (user_id,)).fetchone():
         return
+    _ensure_user_profile(conn, user_id)
     prof = conn.execute(
         'SELECT pilot_name, pilot_company, pilot_company_address FROM profiles WHERE user_id=?',
         (user_id,)).fetchone()
@@ -435,6 +451,27 @@ def _ensure_user_holder(conn, user_id):
     conn.execute(
         'INSERT INTO drone_holders(user_id, name, address, is_default) VALUES(?,?,?,1)',
         (user_id, name, addr))
+
+
+def _find_user_for_login(conn, identifier):
+    """Login: username zuerst, dann users.email, zuletzt profiles.pilot_email."""
+    ident = (identifier or '').strip().lower()
+    if not ident:
+        return None
+    user = conn.execute(
+        'SELECT u.* FROM users u WHERE lower(u.username)=?',
+        (ident,)).fetchone()
+    if user:
+        return user
+    user = conn.execute(
+        'SELECT u.* FROM users u WHERE lower(u.email)=?',
+        (ident,)).fetchone()
+    if user:
+        return user
+    return conn.execute(
+        'SELECT u.* FROM users u JOIN profiles p ON p.user_id=u.id '
+        'WHERE lower(p.pilot_email)=?',
+        (ident,)).fetchone()
 
 
 def _parse_email_list(raw):
@@ -522,6 +559,10 @@ def _set_security_headers(response):
     response.headers.setdefault(
         'Permissions-Policy', 'geolocation=(self), camera=(), microphone=()'
     )
+    if session.get('user_id') or request.endpoint in (
+            'login', 'logout', 'register', 'forgot_password', 'reset_password',
+            'approve_via_link'):
+        response.headers['Cache-Control'] = 'no-store'
     return response
 
 
@@ -753,13 +794,10 @@ def send_email(form_data, pdf_path, filename):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
+        username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
         with get_db() as conn:
-            user = conn.execute(
-                'SELECT u.* FROM users u LEFT JOIN profiles p ON u.id = p.user_id '
-                'WHERE u.username=? OR p.pilot_email=?',
-                (username, username)).fetchone()
+            user = _find_user_for_login(conn, username)
         if user and check_password_hash(user['password_hash'], password):
             if not user['is_approved']:
                 flash('Dein Konto wurde noch nicht freigeschaltet. Bitte warte auf die Bestätigung durch einen Administrator.', 'warning')
@@ -771,6 +809,7 @@ def login():
             session['username'] = user['username']
             session['is_admin'] = bool(user['is_admin'])
             with get_db() as conn:
+                _ensure_user_profile(conn, user['id'])
                 _ensure_user_holder(conn, user['id'])
                 conn.commit()
             return redirect(url_for('index'), code=303)
@@ -935,6 +974,7 @@ def approve_via_link(token):
             flash(f'Benutzer {addr} ist bereits freigeschaltet.', 'info')
             return redirect(url_for('admin') if session.get('is_admin') else url_for('login'))
         conn.execute('UPDATE users SET is_approved=1 WHERE id=?', (uid,))
+        _ensure_user_profile(conn, uid)
         _ensure_user_holder(conn, uid)
         conn.commit()
 
@@ -986,9 +1026,10 @@ def index():
             prefill['anzahl_fluege'] = '1'
     with get_db() as conn:
         profile = conn.execute('SELECT * FROM profiles WHERE user_id=?', (user_id,)).fetchone()
+        _ensure_user_profile(conn, user_id)
         if not is_srf:
             _ensure_user_holder(conn, user_id)
-            conn.commit()
+        conn.commit()
         aircraft_list = conn.execute(
             'SELECT * FROM aircraft WHERE user_id=? ORDER BY is_default DESC, name',
             (user_id,)).fetchall()

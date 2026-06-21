@@ -551,41 +551,42 @@
 {% endblock %}
 
 {% block modals %}
-<!-- Map-Picker Modal – direktes body-Kind für korrekte position:fixed-Positionierung -->
-<div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="mapModalLabel"><i class="bi bi-map me-2"></i>Drehort auf Karte wählen</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
-      </div>
-      <div class="modal-body p-0">
-        <div class="p-2 border-bottom bg-light position-relative">
-          <div class="input-group input-group-sm">
-            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-            <input type="text" id="mapSearch" class="form-control" placeholder="Adresse, Ort, POI oder Koordinaten (47.5, 8.2)…" autocomplete="off">
-            <button type="button" class="btn btn-outline-secondary" id="btnMapSearch">Suchen</button>
+<template id="mapModalTpl">
+  <div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="mapModalLabel"><i class="bi bi-map me-2"></i>Drehort auf Karte wählen</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div class="p-2 border-bottom bg-light position-relative">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+              <input type="text" id="mapSearch" class="form-control" placeholder="Adresse, Ort, POI oder Koordinaten (47.5, 8.2)…" autocomplete="off">
+              <button type="button" class="btn btn-outline-secondary" id="btnMapSearch">Suchen</button>
+            </div>
+            <ul id="mapSearchResults" class="list-group position-absolute w-100 shadow-sm d-none"
+                style="top:100%; left:0; z-index:9999; max-height:220px; overflow-y:auto;"></ul>
           </div>
-          <ul id="mapSearchResults" class="list-group position-absolute w-100 shadow-sm d-none"
-              style="top:100%; left:0; z-index:9999; max-height:220px; overflow-y:auto;"></ul>
+          <div id="mapContainer" style="height:380px;"></div>
+          <div class="p-2 d-flex align-items-center gap-2 border-top bg-light">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnMapLocate">
+              <i class="bi bi-geo-alt-fill me-1"></i>Aktueller Standort
+            </button>
+            <span class="text-muted small" id="mapCoords">Karte anklicken oder GPS verwenden</span>
+          </div>
         </div>
-        <div id="mapContainer" style="height:380px;"></div>
-        <div class="p-2 d-flex align-items-center gap-2 border-top bg-light">
-          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnMapLocate">
-            <i class="bi bi-geo-alt-fill me-1"></i>Aktueller Standort
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="button" class="btn btn-srg" id="btnMapApply" disabled>
+            <i class="bi bi-check-circle me-1"></i>Übernehmen
           </button>
-          <span class="text-muted small" id="mapCoords">Karte anklicken oder GPS verwenden</span>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
-        <button type="button" class="btn btn-srg" id="btnMapApply" disabled>
-          <i class="bi bi-check-circle me-1"></i>Übernehmen
-        </button>
       </div>
     </div>
   </div>
-</div>
+</template>
 {% endblock %}
 
 {% block scripts %}
@@ -800,145 +801,153 @@ syncEva();
 
 // ── Map-Picker (Leaflet) ─────────────────────────────────────────────────────
 (function() {
-  let _map, _marker, _selLat, _selLon;
-  const _mapModalEl = document.getElementById('mapModal');
-  if (!_mapModalEl) return;
+  let _map, _marker, _selLat, _selLon, _mapModalEl, _mapModalReady = false;
 
-  // Karte in shown.bs.modal initialisieren: Container ist display:block und hat korrekte Dimensionen
-  _mapModalEl.addEventListener('shown.bs.modal', function() {
-    if (!_map) {
-      // Animationen deaktivieren: verhindert CSS-Transform-Interferenz mit Bootstrap-Modal
-      _map = L.map('mapContainer', {
-        zoomAnimation: false,
-        fadeAnimation: false,
-        markerZoomAnimation: false
-      }).setView([46.8182, 8.2275], 8);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(_map);
-      _map.on('click', function(e) {
-        _selLat = e.latlng.lat; _selLon = e.latlng.lng;
+  function ensureMapModal() {
+    if (_mapModalEl) return _mapModalEl;
+    var existing = document.getElementById('mapModal');
+    if (existing) {
+      _mapModalEl = existing;
+      return _mapModalEl;
+    }
+    var tpl = document.getElementById('mapModalTpl');
+    if (!tpl) return null;
+    _mapModalEl = tpl.content.firstElementChild.cloneNode(true);
+    document.body.appendChild(_mapModalEl);
+    return _mapModalEl;
+  }
+
+  function initMapModal() {
+    if (_mapModalReady || !_mapModalEl) return;
+    _mapModalReady = true;
+
+    _mapModalEl.addEventListener('shown.bs.modal', function() {
+      if (!_map) {
+        _map = L.map('mapContainer', {
+          zoomAnimation: false,
+          fadeAnimation: false,
+          markerZoomAnimation: false
+        }).setView([46.8182, 8.2275], 8);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(_map);
+        _map.on('click', function(e) {
+          _selLat = e.latlng.lat; _selLon = e.latlng.lng;
+          if (_marker) _map.removeLayer(_marker);
+          _marker = L.marker([_selLat, _selLon]).addTo(_map);
+          document.getElementById('mapCoords').textContent =
+            _selLat.toFixed(5) + ', ' + _selLon.toFixed(5);
+          document.getElementById('btnMapApply').disabled = false;
+        });
+      }
+      setTimeout(function() {
+        _map.invalidateSize();
+        _map.setView(_map.getCenter(), _map.getZoom(), { animate: false });
+      }, 300);
+    });
+
+    document.getElementById('btnMapLocate')?.addEventListener('click', function() {
+      if (!navigator.geolocation || !_map) return;
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        _selLat = pos.coords.latitude; _selLon = pos.coords.longitude;
+        _map.setView([_selLat, _selLon], 14);
         if (_marker) _map.removeLayer(_marker);
         _marker = L.marker([_selLat, _selLon]).addTo(_map);
         document.getElementById('mapCoords').textContent =
           _selLat.toFixed(5) + ', ' + _selLon.toFixed(5);
         document.getElementById('btnMapApply').disabled = false;
-      });
-    }
-    // Nach 300ms: Layout vollständig stabil → korrektes invalidateSize + setView
-    setTimeout(function() {
-      _map.invalidateSize();
-      _map.setView(_map.getCenter(), _map.getZoom(), { animate: false });
-    }, 300);
-  });
+      }, null, { enableHighAccuracy: true, timeout: 10000 });
+    });
 
-  document.getElementById('btnMapLocate')?.addEventListener('click', function() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(function(pos) {
-      _selLat = pos.coords.latitude; _selLon = pos.coords.longitude;
-      _map.setView([_selLat, _selLon], 14);
+    const _searchInput = document.getElementById('mapSearch');
+    const _searchList = document.getElementById('mapSearchResults');
+
+    function _placeSearchMarker(lat, lon, label) {
+      _selLat = lat; _selLon = lon;
+      _map.setView([lat, lon], 14, { animate: false });
       if (_marker) _map.removeLayer(_marker);
-      _marker = L.marker([_selLat, _selLon]).addTo(_map);
-      document.getElementById('mapCoords').textContent =
-        _selLat.toFixed(5) + ', ' + _selLon.toFixed(5);
+      _marker = L.marker([lat, lon]).addTo(_map);
+      document.getElementById('mapCoords').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
       document.getElementById('btnMapApply').disabled = false;
-    }, null, { enableHighAccuracy: true, timeout: 10000 });
-  });
-
-  // ── Suche (Nominatim Vorwärts-Geocoding) ────────────────────────────────────
-  const _searchInput  = document.getElementById('mapSearch');
-  const _searchList   = document.getElementById('mapSearchResults');
-
-  function _placeSearchMarker(lat, lon, label) {
-    _selLat = lat; _selLon = lon;
-    _map.setView([lat, lon], 14, { animate: false });
-    if (_marker) _map.removeLayer(_marker);
-    _marker = L.marker([lat, lon]).addTo(_map);
-    document.getElementById('mapCoords').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
-    document.getElementById('btnMapApply').disabled = false;
-    _searchList.classList.add('d-none');
-    _searchList.innerHTML = '';
-    if (_searchInput) _searchInput.value = label;
-  }
-
-  async function _runSearch() {
-    if (!_map) return;
-    const q = (_searchInput?.value || '').trim();
-    if (!q) return;
-    _searchList.classList.add('d-none');
-    _searchList.innerHTML = '';
-
-    // Koordinaten direkt auflösen (z.B. "47.5, 8.2" oder "47.5 8.2")
-    const coordMatch = q.match(/^(-?\d+(?:[.,]\d+)?)[,\s]+(-?\d+(?:[.,]\d+)?)$/);
-    if (coordMatch) {
-      const lat = parseFloat(coordMatch[1].replace(',', '.'));
-      const lon = parseFloat(coordMatch[2].replace(',', '.'));
-      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
-        _placeSearchMarker(lat, lon, q);
-        return;
-      }
+      _searchList.classList.add('d-none');
+      _searchList.innerHTML = '';
+      if (_searchInput) _searchInput.value = label;
     }
 
-    // Nominatim-Suche
-    try {
-      const res = await fetch(
-        'https://nominatim.openstreetmap.org/search?format=json&limit=6&q=' + encodeURIComponent(q),
-        { headers: { 'Accept-Language': 'de' } }
-      );
-      const results = await res.json();
-      if (!results.length) {
-        _searchList.innerHTML = '<li class="list-group-item text-muted small py-1 px-2">Keine Ergebnisse</li>';
-        _searchList.classList.remove('d-none');
-        return;
+    async function _runSearch() {
+      if (!_map) return;
+      const q = (_searchInput?.value || '').trim();
+      if (!q) return;
+      _searchList.classList.add('d-none');
+      _searchList.innerHTML = '';
+      const coordMatch = q.match(/^(-?\d+(?:[.,]\d+)?)[,\s]+(-?\d+(?:[.,]\d+)?)$/);
+      if (coordMatch) {
+        const lat = parseFloat(coordMatch[1].replace(',', '.'));
+        const lon = parseFloat(coordMatch[2].replace(',', '.'));
+        if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+          _placeSearchMarker(lat, lon, q);
+          return;
+        }
       }
-      results.forEach(function(r) {
-        const li = document.createElement('li');
-        li.className = 'list-group-item list-group-item-action py-1 px-2 small';
-        li.style.cursor = 'pointer';
-        li.textContent = r.display_name;
-        li.addEventListener('mousedown', function(e) {
-          e.preventDefault(); // blur verhindern bevor click
-          _placeSearchMarker(parseFloat(r.lat), parseFloat(r.lon), r.display_name);
+      try {
+        const res = await fetch(
+          'https://nominatim.openstreetmap.org/search?format=json&limit=6&q=' + encodeURIComponent(q),
+          { headers: { 'Accept-Language': 'de' } }
+        );
+        const results = await res.json();
+        if (!results.length) {
+          _searchList.innerHTML = '<li class="list-group-item text-muted small py-1 px-2">Keine Ergebnisse</li>';
+          _searchList.classList.remove('d-none');
+          return;
+        }
+        results.forEach(function(r) {
+          const li = document.createElement('li');
+          li.className = 'list-group-item list-group-item-action py-1 px-2 small';
+          li.style.cursor = 'pointer';
+          li.textContent = r.display_name;
+          li.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            _placeSearchMarker(parseFloat(r.lat), parseFloat(r.lon), r.display_name);
+          });
+          _searchList.appendChild(li);
         });
-        _searchList.appendChild(li);
-      });
-      _searchList.classList.remove('d-none');
-    } catch(err) {
-      _searchList.innerHTML = '<li class="list-group-item text-danger small py-1 px-2">Fehler bei der Suche</li>';
-      _searchList.classList.remove('d-none');
+        _searchList.classList.remove('d-none');
+      } catch(err) {
+        _searchList.innerHTML = '<li class="list-group-item text-danger small py-1 px-2">Fehler bei der Suche</li>';
+        _searchList.classList.remove('d-none');
+      }
     }
+
+    document.getElementById('btnMapSearch')?.addEventListener('click', _runSearch);
+    _searchInput?.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); _runSearch(); }
+    });
+    _searchInput?.addEventListener('blur', function() {
+      setTimeout(function() { _searchList.classList.add('d-none'); }, 150);
+    });
+
+    document.getElementById('btnMapApply')?.addEventListener('click', async function() {
+      if (_selLat == null) return;
+      this.disabled = true;
+      this.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Wird geladen…';
+      try {
+        const data = await fetch('/api/location-data?lat=' + _selLat + '&lon=' + _selLon).then(r => r.json());
+        setField('drehort', data.location || '');
+        setField('koordinaten', data.coordinates || '');
+        bootstrap.Modal.getInstance(_mapModalEl).hide();
+      } catch(err) {
+        alert('Fehler beim Abrufen der Ortsdaten. Bitte erneut versuchen.');
+      } finally {
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-check-circle me-1"></i>Übernehmen';
+      }
+    });
   }
 
-  document.getElementById('btnMapSearch')?.addEventListener('click', _runSearch);
-  _searchInput?.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); _runSearch(); }
-  });
-  _searchInput?.addEventListener('blur', function() {
-    setTimeout(function() { _searchList.classList.add('d-none'); }, 150);
-  });
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  document.getElementById('btnMapApply')?.addEventListener('click', async function() {
-    if (_selLat == null) return;
-    this.disabled = true;
-    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Wird geladen…';
-    try {
-      const data = await fetch('/api/location-data?lat=' + _selLat + '&lon=' + _selLon).then(r => r.json());
-      setField('drehort', data.location || '');
-      setField('koordinaten', data.coordinates || '');
-      bootstrap.Modal.getInstance(_mapModalEl).hide();
-    } catch(err) {
-      alert('Fehler beim Abrufen der Ortsdaten. Bitte erneut versuchen.');
-    } finally {
-      this.disabled = false;
-      this.innerHTML = '<i class="bi bi-check-circle me-1"></i>Übernehmen';
-    }
-  });
-
-  // Leaflet JS lazy laden (erst bei Klick), dann Modal öffnen —
-  // so ist L garantiert definiert wenn shown.bs.modal feuert
   document.getElementById('btnMapPicker')?.addEventListener('click', function() {
+    if (!ensureMapModal()) return;
+    initMapModal();
     function _open() {
       bootstrap.Modal.getOrCreateInstance(_mapModalEl).show();
     }
