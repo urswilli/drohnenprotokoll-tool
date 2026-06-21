@@ -770,6 +770,9 @@ def login():
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['is_admin'] = bool(user['is_admin'])
+            with get_db() as conn:
+                _ensure_user_holder(conn, user['id'])
+                conn.commit()
             return redirect(url_for('index'), code=303)
         flash('Ungültiger Benutzername oder Passwort.', 'danger')
     return render_template('login.html', test_mode=test_mode_on())
@@ -983,6 +986,9 @@ def index():
             prefill['anzahl_fluege'] = '1'
     with get_db() as conn:
         profile = conn.execute('SELECT * FROM profiles WHERE user_id=?', (user_id,)).fetchone()
+        if not is_srf:
+            _ensure_user_holder(conn, user_id)
+            conn.commit()
         aircraft_list = conn.execute(
             'SELECT * FROM aircraft WHERE user_id=? ORDER BY is_default DESC, name',
             (user_id,)).fetchall()

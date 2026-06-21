@@ -27,8 +27,10 @@
 <form method="post" action="{{ url_for('submit') }}" id="drohnenForm">
 
 <!-- ═══════════════════════════ 1. DROHNENHALTER ════════════════════════════ -->
-{% set ns = namespace(default_holder_id=(drone_holders[0].id if drone_holders else 1)) %}
+{% set ns = namespace(default_holder_id=none, default_holder=none) %}
 {% for h in drone_holders if h.is_default %}{% set ns.default_holder_id = h.id %}{% endfor %}
+{% if ns.default_holder_id is none and drone_holders %}{% set ns.default_holder_id = drone_holders[0].id %}{% endif %}
+{% for h in drone_holders if h.id == ns.default_holder_id %}{% set ns.default_holder = h %}{% endfor %}
 <div class="card mb-3 border-0 shadow-sm">
   <div class="card-header section-header">
     <i class="bi bi-building me-2"></i>Firma und Adresse des Drohnenhalters
@@ -57,13 +59,17 @@
     <div class="row g-3">
       <div class="col-md-6">
         <label class="form-label text-muted small">Firmenname</label>
-        <input type="text" class="form-control bg-light" id="holderCompanyDisplay" readonly>
-        <input type="hidden" name="drone_holder_company" id="holderCompanyHidden">
+        <input type="text" class="form-control bg-light" id="holderCompanyDisplay" readonly
+               value="{{ ns.default_holder.name if ns.default_holder else '' }}">
+        <input type="hidden" name="drone_holder_company" id="holderCompanyHidden"
+               value="{{ ns.default_holder.name if ns.default_holder else '' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label text-muted small">Adresse</label>
-        <input type="text" class="form-control bg-light" id="holderAddressDisplay" readonly>
-        <input type="hidden" name="drone_holder_address" id="holderAddressHidden">
+        <input type="text" class="form-control bg-light" id="holderAddressDisplay" readonly
+               value="{{ ns.default_holder.address if ns.default_holder else '' }}">
+        <input type="hidden" name="drone_holder_address" id="holderAddressHidden"
+               value="{{ ns.default_holder.address if ns.default_holder else '' }}">
         <div class="form-text"><a href="{{ url_for('profile') }}">Halter im Profil verwalten</a></div>
       </div>
     </div>
@@ -234,7 +240,7 @@
     {% else %}
     <div class="alert alert-info py-2">
       <i class="bi bi-info-circle me-1"></i>
-      Noch keine Drohnen hinterlegt. <a href="{{ url_for('admin') }}">Jetzt im Admin-Bereich hinzufügen</a>
+      Noch keine Drohnen hinterlegt. <a href="{{ url_for('profile') }}">Jetzt im Profil hinzufügen</a>
     </div>
     {% endif %}
     <div class="row g-3">

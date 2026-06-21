@@ -118,7 +118,13 @@
   function cleanupOrphanModals() {
     document.querySelectorAll('.modal.show').forEach(function(el) {
       var inst = bootstrap.Modal.getInstance(el);
-      if (inst) inst.hide();
+      if (inst) {
+        inst.hide();
+      } else {
+        el.classList.remove('show');
+        el.setAttribute('aria-hidden', 'true');
+        el.style.removeProperty('display');
+      }
     });
     document.querySelectorAll('.modal-backdrop').forEach(function(el) { el.remove(); });
     document.body.classList.remove('modal-open');
@@ -126,7 +132,11 @@
     document.body.style.removeProperty('padding-right');
   }
   document.addEventListener('DOMContentLoaded', cleanupOrphanModals);
-  window.addEventListener('pageshow', cleanupOrphanModals);
+  window.addEventListener('load', cleanupOrphanModals);
+  window.addEventListener('pageshow', function(e) {
+    cleanupOrphanModals();
+    if (e.persisted) setTimeout(cleanupOrphanModals, 0);
+  });
 })();
 </script>
 {% block scripts %}{% endblock %}
