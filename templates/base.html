@@ -204,9 +204,23 @@
       navEl.style.removeProperty('z-index');
       return;
     }
-    // If a stale backdrop remains, keep navbar clickable above it.
+    // Keep navbar above stale overlays/backdrops (including extension UI layers).
     navEl.style.position = 'relative';
-    navEl.style.zIndex = '2000';
+    navEl.style.zIndex = '2147483000';
+  }
+
+  function neutralizeKnownExternalOverlays() {
+    var changed = 0;
+    document.querySelectorAll('bit-notification-bar-root').forEach(function(el) {
+      if (el.dataset.navfixApplied === '1') return;
+      el.style.pointerEvents = 'none';
+      el.style.zIndex = '1';
+      el.dataset.navfixApplied = '1';
+      changed++;
+    });
+    if (changed) {
+      navDebugPush('external-overlay-neutralized', { count: changed });
+    }
   }
 
   function cleanupOrphanModals() {
@@ -236,11 +250,13 @@
 
   function scheduleCleanup() {
     cleanupOrphanModals();
+    neutralizeKnownExternalOverlays();
     refreshNavZIndex();
     navDebugPush('scheduleCleanup');
     [0, 50, 100, 500, 1000, 2000].forEach(function(ms) {
       setTimeout(function() {
         cleanupOrphanModals();
+        neutralizeKnownExternalOverlays();
         refreshNavZIndex();
       }, ms);
     });
@@ -260,6 +276,7 @@
         navDebugPush('mutation-stale-backdrop');
         cleanupOrphanModals();
       }
+      neutralizeKnownExternalOverlays();
       refreshNavZIndex();
     }).observe(document.body, { childList: true, subtree: false });
   }
