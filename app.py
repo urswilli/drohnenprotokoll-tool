@@ -13,7 +13,7 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 
 from flask import (Flask, render_template, request, redirect, url_for,
-                   session, jsonify, send_file, flash)
+                   session, jsonify, send_file, send_from_directory, flash)
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
@@ -1169,6 +1169,14 @@ def submit():
                            email_msg=email_msg,
                            email_recipients=email_recipients,
                            smtp_configured=bool(get_setting('smtp_host')))
+
+
+@app.route('/sw.js')
+def service_worker():
+    resp = send_from_directory(os.path.join(BASE_DIR, 'static'), 'sw.js')
+    resp.headers['Service-Worker-Allowed'] = '/'
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
 
 
 @app.route('/download/<path:filename>')
