@@ -1,10 +1,13 @@
-const CACHE = 'drohnenprotokoll-static-v1';
+const CACHE = 'drohnenprotokoll-static-v2';
 
 const PRECACHE = [
   '/static/manifest.webmanifest',
+  '/static/icons/favicon-16.png',
+  '/static/icons/favicon-32.png',
   '/static/icons/apple-touch-icon.png',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
+  '/static/icons/login-icon.png',
 ];
 
 self.addEventListener('install', (event) => {
