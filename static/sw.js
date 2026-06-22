@@ -1,4 +1,4 @@
-const CACHE = 'drohnenprotokoll-static-v4';
+const CACHE = 'drohnenprotokoll-static-v5';
 
 const PRECACHE = [
   '/static/manifest.webmanifest',
