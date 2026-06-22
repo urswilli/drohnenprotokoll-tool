@@ -10,7 +10,7 @@ function isStandalonePwa() {
 function geolocationErrorMessage(err) {
   if (err.code === 1) {
     if (isStandalonePwa()) {
-      return 'Standortzugriff verweigert. iOS: Einstellungen → Datenschutz → Ortungsdienste → «Drohnenprotokoll» → «Beim Verwenden der App». Android: App-Info → Berechtigungen → Standort.';
+      return 'Standortzugriff verweigert. iOS: Einstellungen → Datenschutz & Sicherheit → Ortungsdienste → Systemdienste → «In-App-Browsing» aktivieren, danach «Drohnenprotokoll» → «Beim Verwenden der App». Android: App-Info → Berechtigungen → Standort.';
     }
     return 'Standortzugriff verweigert. Bitte in den Browser-Einstellungen erlauben.';
   }

@@ -479,10 +479,12 @@ def _ensure_user_profile(conn, user_id):
         (user_id, name, email))
 
 
-def _ensure_user_holder(conn, user_id):
-    """SRF-Nutzer (@srf.ch): Systemhalter id=1. Andere: mindestens ein eigener Drohnenhalter."""
+def _ensure_user_holder(conn, user_id, *, initial_setup=False):
+    """SRF-Nutzer (@srf.ch): Systemhalter id=1 bei Registrierung. Andere: mindestens ein eigener Halter."""
     if _user_email_from_conn(conn, user_id).endswith('@srf.ch'):
-        conn.execute('UPDATE users SET default_holder_id=1 WHERE id=?', (user_id,))
+        conn.execute('UPDATE drone_holders SET is_default=0 WHERE user_id=?', (user_id,))
+        if initial_setup:
+            conn.execute('UPDATE users SET default_holder_id=1 WHERE id=?', (user_id,))
         return
     if conn.execute('SELECT 1 FROM drone_holders WHERE user_id=?', (user_id,)).fetchone():
         return
@@ -892,7 +894,7 @@ def register():
                     conn.execute(
                         'INSERT INTO profiles(user_id,pilot_name,pilot_email) VALUES(?,?,?)',
                         (new_id, name, email))
-                    _ensure_user_holder(conn, new_id)
+                    _ensure_user_holder(conn, new_id, initial_setup=True)
                     conn.commit()
 
                 # Bestätigungsmail an den Nutzer (best-effort)
@@ -1019,7 +1021,7 @@ def approve_via_link(token):
             return redirect(url_for('admin') if session.get('is_admin') else url_for('login'))
         conn.execute('UPDATE users SET is_approved=1 WHERE id=?', (uid,))
         _ensure_user_profile(conn, uid)
-        _ensure_user_holder(conn, uid)
+        _ensure_user_holder(conn, uid, initial_setup=True)
         conn.commit()
 
     _notify_user_approved(addr)
@@ -1474,7 +1476,7 @@ def admin():
                             conn.execute(
                                 'INSERT INTO profiles(user_id,pilot_name,pilot_email) VALUES(?,?,?)',
                                 (cur.lastrowid, name, email))
-                            _ensure_user_holder(conn, cur.lastrowid)
+                            _ensure_user_holder(conn, cur.lastrowid, initial_setup=True)
                             conn.commit()
                         flash(f'Benutzer {username!r} erstellt.', 'success')
                     except sqlite3.IntegrityError:
@@ -1533,7 +1535,7 @@ def admin():
             uid = request.form.get('uid')
             with get_db() as conn:
                 conn.execute('UPDATE users SET is_approved=1 WHERE id=?', (uid,))
-                _ensure_user_holder(conn, uid)
+                _ensure_user_holder(conn, uid, initial_setup=True)
                 row = conn.execute('SELECT username, email FROM users WHERE id=?', (uid,)).fetchone()
                 conn.commit()
             if row:
