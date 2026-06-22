@@ -60,7 +60,7 @@ Then deploy via Portainer (Stacks → Add Stack → Repository) with environment
 
 Single-file Flask app (`app.py`) — no blueprints, no separate models file. `init_db()` is called at module level (not inside `__main__`) so it runs under both Gunicorn and the dev server.
 
-**Data layer:** SQLite via `sqlite3` directly (no ORM). `get_db()` returns a `Row`-factory connection. `init_db()` creates all tables and runs `ALTER TABLE` migrations in try/except blocks (idempotent). Tables: `users`, `profiles`, `aircraft` (per-user drones), `drones` (SRG fleet, admin-managed), `settings` (key/value SMTP config), `sendeformate`, `verwendungszwecke`, `redaktionen`, `srg_ue`, `drone_holders`, `aircraft_holder_map`.
+**Data layer:** SQLite via `sqlite3` directly (no ORM). `get_db()` returns a `Row`-factory connection. `init_db()` creates all tables and runs `ALTER TABLE` migrations in try/except blocks (idempotent). Tables: `users`, `profiles`, `aircraft` (per-user drones), `drones` (SRG fleet, admin-managed), `settings` (key/value SMTP config), `sendeformate`, `verwendungszwecke`, `redaktionen`, `srg_ue`, `drone_holders`, `aircraft_holder_map`. `users.default_holder_id` stores the per-user default holder (including SRF system holder id=1 for SRF users).
 
 **PDF generation:** `fill_pdf(form_data)` uses `pypdf` to clone `SRG_Weisung und Checkliste für den Einsatz von Drohnen_V500e.pdf` and write form field values. Critical field mapping (confirmed by PDF coordinate analysis):
 
@@ -75,6 +75,8 @@ Single-file Flask app (`app.py`) — no blueprints, no separate models file. `in
 **Form submission flow:** `GET /` renders `form.html` with profile data + drone lists → `POST /submit` validates mandatory fields server-side (`_validate_form`), calls `fill_pdf()`, optionally `send_email()`, renders `success.html`. Session `form_prefill` enables «Neues Protokoll für diese Produktion» via `/?continue=1` (clears Wetterlage + Flugdauer). The readonly Drohnenhalter fields in Section 1 are accompanied by hidden inputs (`drone_holder_company`, `drone_holder_address`) so the values reach `form_data`.
 
 **SRF access control:** SRF system holder (id=1) and SRG fleet drones only for users with `@srf.ch` email (`_is_srf_user`). Protocol mail always To `drohnen@srf.ch`; `eng-service@srf.ch` only when SRF holder selected.
+
+**Holder default semantics:** The "Standard" marker in Profile/Form is driven by `users.default_holder_id` (not by globally shared system-holder flags). Users can clear the standard holder entirely; in that case the form falls back to the first holder in the dropdown. Migration backfills in `init_db()` intentionally skip SRF users so deleted custom SRF holders are not recreated on restart.
 
 **Location API:** `GET /api/location-data?lat=&lon=` fetches Nominatim (reverse geocoding) and Open-Meteo (weather). Returns both `location` (full address with street) and `location_short` (PLZ + city only). `static/app.js` uses `location_short` for the Ort signature fields and `location` for the Drehort field.
 

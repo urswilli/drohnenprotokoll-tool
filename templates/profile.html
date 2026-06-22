@@ -122,14 +122,15 @@
                   <strong>{{ h.name }}</strong>
                   {% if h.user_id is none %}
                     <span class="badge bg-secondary ms-1 small">System</span>
-                  {% elif h.is_default %}
+                  {% endif %}
+                  {% if default_holder_id == h.id %}
                     <span class="badge bg-srg ms-1 small">Standard</span>
                   {% endif %}
                 </td>
                 <td class="text-muted small">{{ h.address or '–' }}</td>
                 <td class="text-end">
-                  {% if h.user_id is not none %}
                   <div class="d-flex gap-1 justify-content-end">
+                    {% if h.user_id is not none %}
                     <button type="button" class="btn btn-outline-secondary btn-sm"
                             data-bs-toggle="modal" data-bs-target="#editHolderModal"
                             data-id="{{ h.id }}"
@@ -137,7 +138,8 @@
                             data-address="{{ h.address }}">
                       <i class="bi bi-pencil"></i>
                     </button>
-                    {% if not h.is_default %}
+                    {% endif %}
+                    {% if default_holder_id != h.id %}
                     <form method="post" class="d-inline">
                       <input type="hidden" name="action" value="set_default_holder">
                       <input type="hidden" name="holder_id" value="{{ h.id }}">
@@ -146,10 +148,14 @@
                       </button>
                     </form>
                     {% else %}
-                    <span class="btn btn-srg btn-sm" title="Standard">
-                      <i class="bi bi-star-fill"></i>
-                    </span>
+                    <form method="post" class="d-inline">
+                      <input type="hidden" name="action" value="clear_default_holder">
+                      <button type="submit" class="btn btn-outline-secondary btn-sm" title="Standard entfernen">
+                        <i class="bi bi-star-fill"></i>
+                      </button>
+                    </form>
                     {% endif %}
+                    {% if h.user_id is not none %}
                     <form method="post" class="d-inline"
                           onsubmit="return confirm('Halter «{{ h.name }}» wirklich löschen?')">
                       <input type="hidden" name="action" value="delete_holder">
@@ -158,9 +164,10 @@
                         <i class="bi bi-trash"></i>
                       </button>
                     </form>
+                    {% endif %}
                   </div>
-                  {% else %}
-                  <span class="text-muted small">nicht änderbar</span>
+                  {% if h.user_id is none %}
+                  <div class="text-muted small mt-1">Name/Adresse nicht änderbar</div>
                   {% endif %}
                 </td>
               </tr>

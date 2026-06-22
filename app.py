@@ -353,6 +353,10 @@ def init_db():
             conn.execute("ALTER TABLE users ADD COLUMN is_approved INTEGER DEFAULT 1")
         except Exception:
             pass
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN default_holder_id INTEGER")
+        except Exception:
+            pass
         if conn.execute('SELECT COUNT(*) FROM sendeformate').fetchone()[0] == 0:
             conn.executemany('INSERT OR IGNORE INTO sendeformate(name) VALUES(?)',
                              [(s,) for s in SENDEFORMATE])
@@ -373,7 +377,9 @@ def init_db():
             INSERT OR IGNORE INTO drone_holders(user_id, name, address)
             SELECT p.user_id, p.pilot_company, COALESCE(p.pilot_company_address, '')
             FROM profiles p
+            JOIN users u ON u.id = p.user_id
             WHERE p.pilot_company != ''
+              AND LOWER(COALESCE(NULLIF(u.email, ''), u.username, '')) NOT LIKE '%@srf.ch'
               AND NOT EXISTS (SELECT 1 FROM drone_holders d WHERE d.user_id = p.user_id)
         """)
         conn.execute("""
@@ -389,7 +395,9 @@ def init_db():
                    COALESCE(p.pilot_company_address, ''),
                    1
             FROM profiles p
-            WHERE NOT EXISTS (SELECT 1 FROM drone_holders d WHERE d.user_id = p.user_id)
+            JOIN users u ON u.id = p.user_id
+            WHERE LOWER(COALESCE(NULLIF(u.email, ''), u.username, '')) NOT LIKE '%@srf.ch'
+              AND NOT EXISTS (SELECT 1 FROM drone_holders d WHERE d.user_id = p.user_id)
         """)
         conn.commit()
 
@@ -421,6 +429,26 @@ def _user_email(user_id):
 
 def _is_srf_user(user_id):
     return _user_email(user_id).endswith('@srf.ch')
+
+
+def _holder_accessible(conn, user_id, holder_id, is_srf):
+    if holder_id is None:
+        return False
+    row = conn.execute(
+        'SELECT 1 FROM drone_holders WHERE id=? AND (user_id=? OR (? AND user_id IS NULL))',
+        (holder_id, user_id, 1 if is_srf else 0)).fetchone()
+    return row is not None
+
+
+def _resolve_default_holder_id(conn, user_id, is_srf):
+    pref = conn.execute('SELECT default_holder_id FROM users WHERE id=?', (user_id,)).fetchone()
+    preferred_id = pref['default_holder_id'] if pref else None
+    if preferred_id is not None and _holder_accessible(conn, user_id, preferred_id, is_srf):
+        return int(preferred_id)
+    legacy = conn.execute(
+        'SELECT id FROM drone_holders WHERE user_id=? AND is_default=1 ORDER BY id LIMIT 1',
+        (user_id,)).fetchone()
+    return int(legacy['id']) if legacy else None
 
 
 def _is_srf_holder_company(company):
@@ -1048,6 +1076,7 @@ def index():
                 'SELECT * FROM drone_holders WHERE user_id=? ORDER BY is_default DESC, name',
                 (user_id,)).fetchall()
             drones = []
+        default_holder_id = _resolve_default_holder_id(conn, user_id, is_srf)
         aircraft_holder_ids = {}
         for row in conn.execute(
             'SELECT ahm.aircraft_id, ahm.holder_id FROM aircraft_holder_map ahm '
@@ -1071,6 +1100,7 @@ def index():
                            redaktionen=redaktionen,
                            srg_ue_list=srg_ue_list,
                            is_srf_user=is_srf,
+                           default_holder_id=default_holder_id,
                            prefill=prefill)
 
 
@@ -1231,9 +1261,12 @@ def profile():
                 if name:
                     if is_default:
                         conn.execute('UPDATE drone_holders SET is_default=0 WHERE user_id=?', (user_id,))
-                    conn.execute(
+                    cur = conn.execute(
                         'INSERT INTO drone_holders(user_id, name, address, is_default) VALUES(?,?,?,?)',
                         (user_id, name, addr, is_default))
+                    if is_default:
+                        conn.execute('UPDATE users SET default_holder_id=? WHERE id=?',
+                                     (cur.lastrowid, user_id))
                     conn.commit()
                     flash('Drohnenhalter hinzugefügt.', 'success')
                 else:
@@ -1255,6 +1288,8 @@ def profile():
             elif action == 'delete_holder':
                 hid = request.form.get('holder_id')
                 if hid and str(hid) != '1':
+                    conn.execute('UPDATE users SET default_holder_id=NULL WHERE id=? AND default_holder_id=?',
+                                 (user_id, hid))
                     conn.execute('DELETE FROM aircraft_holder_map WHERE holder_id=?', (hid,))
                     conn.execute('DELETE FROM drone_holders WHERE id=? AND user_id=?', (hid, user_id))
                     conn.commit()
@@ -1262,11 +1297,19 @@ def profile():
 
             elif action == 'set_default_holder':
                 hid = request.form.get('holder_id')
-                if hid:
+                is_srf = _is_srf_user(user_id)
+                if hid and _holder_accessible(conn, user_id, hid, is_srf):
                     conn.execute('UPDATE drone_holders SET is_default=0 WHERE user_id=?', (user_id,))
-                    conn.execute('UPDATE drone_holders SET is_default=1 WHERE id=? AND user_id=?',
-                                 (hid, user_id))
+                    conn.execute('UPDATE drone_holders SET is_default=1 WHERE id=? AND user_id=?', (hid, user_id))
+                    conn.execute('UPDATE users SET default_holder_id=? WHERE id=?', (hid, user_id))
                     conn.commit()
+                elif hid:
+                    flash('Standardhalter konnte nicht gesetzt werden.', 'danger')
+
+            elif action == 'clear_default_holder':
+                conn.execute('UPDATE drone_holders SET is_default=0 WHERE user_id=?', (user_id,))
+                conn.execute('UPDATE users SET default_holder_id=NULL WHERE id=?', (user_id,))
+                conn.commit()
 
             elif action == 'add_aircraft':
                 is_default = 1 if request.form.get('ac_default') else 0
@@ -1356,6 +1399,7 @@ def profile():
             (user_id,)).fetchall() if _is_srf_user(user_id) else conn.execute(
             'SELECT * FROM drone_holders WHERE user_id=? ORDER BY is_default DESC, name',
             (user_id,)).fetchall()
+        default_holder_id = _resolve_default_holder_id(conn, user_id, _is_srf_user(user_id))
         aircraft_holder_ids = {}
         for row in conn.execute(
             'SELECT ahm.aircraft_id, ahm.holder_id FROM aircraft_holder_map ahm '
@@ -1363,7 +1407,9 @@ def profile():
             aircraft_holder_ids.setdefault(row['aircraft_id'], []).append(row['holder_id'])
 
     return render_template('profile.html', profile=profile_data, aircraft_list=aircraft_list,
-                           drone_holders=drone_holders, aircraft_holder_ids=aircraft_holder_ids)
+                           drone_holders=drone_holders,
+                           aircraft_holder_ids=aircraft_holder_ids,
+                           default_holder_id=default_holder_id)
 
 
 @app.route('/admin', methods=['GET', 'POST'])

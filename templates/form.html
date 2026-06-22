@@ -27,8 +27,7 @@
 <form method="post" action="{{ url_for('submit') }}" id="drohnenForm">
 
 <!-- ═══════════════════════════ 1. DROHNENHALTER ════════════════════════════ -->
-{% set ns = namespace(default_holder_id=none, default_holder=none) %}
-{% for h in drone_holders if h.is_default %}{% set ns.default_holder_id = h.id %}{% endfor %}
+{% set ns = namespace(default_holder_id=default_holder_id, default_holder=none) %}
 {% if ns.default_holder_id is none and drone_holders %}{% set ns.default_holder_id = drone_holders[0].id %}{% endif %}
 {% for h in drone_holders if h.id == ns.default_holder_id %}{% set ns.default_holder = h %}{% endfor %}
 <div class="card mb-3 border-0 shadow-sm">
