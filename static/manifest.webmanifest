@@ -8,6 +8,7 @@
   "background_color": "#c8102e",
   "theme_color": "#c8102e",
   "lang": "de",
+  "permissions": ["geolocation"],
   "icons": [
     {
       "src": "/static/icons/icon-192.png",

@@ -1,5 +1,54 @@
 'use strict';
 
+// ── Geolocation (Browser + PWA) ───────────────────────────────────────────
+
+function isStandalonePwa() {
+  return window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+}
+
+function geolocationErrorMessage(err) {
+  if (err.code === 1) {
+    if (isStandalonePwa()) {
+      return 'Standortzugriff verweigert. iOS: Einstellungen → Datenschutz → Ortungsdienste → «Drohnenprotokoll» → «Beim Verwenden der App». Android: App-Info → Berechtigungen → Standort.';
+    }
+    return 'Standortzugriff verweigert. Bitte in den Browser-Einstellungen erlauben.';
+  }
+  if (err.code === 2) return 'Standort nicht verfügbar.';
+  if (err.code === 3) return 'Standortabfrage hat zu lange gedauert. Bitte erneut versuchen.';
+  return 'Standort konnte nicht ermittelt werden.';
+}
+
+function getCurrentLocation(onSuccess, onError) {
+  if (!navigator.geolocation) {
+    onError({ code: 0 });
+    return;
+  }
+  const attempts = [
+    { enableHighAccuracy: false, timeout: 30000, maximumAge: 120000 },
+    { enableHighAccuracy: true, timeout: 25000, maximumAge: 60000 },
+    { enableHighAccuracy: false, timeout: 45000, maximumAge: 300000 },
+  ];
+  let idx = 0;
+  function attempt() {
+    navigator.geolocation.getCurrentPosition(
+      onSuccess,
+      (err) => {
+        idx += 1;
+        if (idx < attempts.length && (err.code === 1 || err.code === 2 || err.code === 3)) {
+          attempt();
+          return;
+        }
+        onError(err);
+      },
+      attempts[idx]
+    );
+  }
+  attempt();
+}
+
+window.GeoHelper = { getCurrentLocation, geolocationErrorMessage, isStandalonePwa };
+
 // ── Geolocation + Weather + Reverse Geocoding ─────────────────────────────
 
 const btn = document.getElementById('btnLocation');
@@ -62,14 +111,10 @@ function showStatus(msg, done = false) {
 }
 
 function requestLocation() {
-  if (!navigator.geolocation) {
-    alert('Ihr Browser unterstützt keine Geolokalisierung.');
-    return;
-  }
   showStatusTop('Standort wird ermittelt…');
   if (btn) btn.disabled = true;
 
-  navigator.geolocation.getCurrentPosition(
+  getCurrentLocation(
     (pos) => {
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
@@ -93,13 +138,9 @@ function requestLocation() {
         });
     },
     (err) => {
-      let msg = 'Standort konnte nicht ermittelt werden.';
-      if (err.code === 1) msg = 'Standortzugriff verweigert. Bitte in Browser-Einstellungen erlauben.';
-      if (err.code === 2) msg = 'Standort nicht verfügbar.';
-      showStatusTop(msg, true);
+      showStatusTop(geolocationErrorMessage(err), true);
       if (btn) btn.disabled = false;
-    },
-    { enableHighAccuracy: true, timeout: 15000 }
+    }
   );
 }
 
@@ -111,10 +152,9 @@ if (btn) btn.addEventListener('click', requestLocation);
   const btnW = document.getElementById('btnWeatherOnly');
   if (!btnW) return;
   btnW.addEventListener('click', function () {
-    if (!navigator.geolocation) { alert('Geolokalisierung nicht verfügbar.'); return; }
     showWeatherStatus('Wetterdaten werden ermittelt…');
     btnW.disabled = true;
-    navigator.geolocation.getCurrentPosition(
+    getCurrentLocation(
       function (pos) {
         fetch('/api/location-data?lat=' + pos.coords.latitude + '&lon=' + pos.coords.longitude)
           .then(function (r) { return r.json(); })
@@ -127,11 +167,10 @@ if (btn) btn.addEventListener('click', requestLocation);
           })
           .finally(function () { btnW.disabled = false; });
       },
-      function () {
-        showWeatherStatus('Standort konnte nicht ermittelt werden.', true);
+      function (err) {
+        showWeatherStatus(geolocationErrorMessage(err), true);
         btnW.disabled = false;
-      },
-      { enableHighAccuracy: false, timeout: 10000 }
+      }
     );
   });
 })();

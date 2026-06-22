@@ -848,7 +848,10 @@ syncEva();
 
     document.getElementById('btnMapLocate')?.addEventListener('click', function() {
       if (!navigator.geolocation || !_map) return;
-      navigator.geolocation.getCurrentPosition(function(pos) {
+      const locate = window.GeoHelper?.getCurrentLocation || function(ok, err) {
+        navigator.geolocation.getCurrentPosition(ok, err, { enableHighAccuracy: false, timeout: 30000 });
+      };
+      locate(function(pos) {
         _selLat = pos.coords.latitude; _selLon = pos.coords.longitude;
         _map.setView([_selLat, _selLon], 14);
         if (_marker) _map.removeLayer(_marker);
@@ -856,7 +859,10 @@ syncEva();
         document.getElementById('mapCoords').textContent =
           _selLat.toFixed(5) + ', ' + _selLon.toFixed(5);
         document.getElementById('btnMapApply').disabled = false;
-      }, null, { enableHighAccuracy: true, timeout: 10000 });
+      }, function() {
+        alert(window.GeoHelper?.geolocationErrorMessage?.({ code: 1 })
+          || 'Standort konnte nicht ermittelt werden.');
+      });
     });
 
     const _searchInput = document.getElementById('mapSearch');

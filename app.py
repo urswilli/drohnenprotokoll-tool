@@ -427,8 +427,17 @@ def _user_email(user_id):
     return (row['email'] or '').strip().lower() if row else ''
 
 
+def _user_email_from_conn(conn, user_id):
+    row = conn.execute(
+        'SELECT COALESCE(NULLIF(u.email, ""), NULLIF(p.pilot_email, ""), u.username) AS email '
+        'FROM users u LEFT JOIN profiles p ON p.user_id = u.id WHERE u.id = ?',
+        (user_id,)).fetchone()
+    return (row['email'] or '').strip().lower() if row else ''
+
+
 def _is_srf_user(user_id):
-    return _user_email(user_id).endswith('@srf.ch')
+    with get_db() as conn:
+        return _user_email_from_conn(conn, user_id).endswith('@srf.ch')
 
 
 def _holder_accessible(conn, user_id, holder_id, is_srf):
@@ -471,7 +480,10 @@ def _ensure_user_profile(conn, user_id):
 
 
 def _ensure_user_holder(conn, user_id):
-    """Mindestens ein eigener Drohnenhalter pro User (Neuregistrierung/Backfill)."""
+    """SRF-Nutzer (@srf.ch): Systemhalter id=1. Andere: mindestens ein eigener Drohnenhalter."""
+    if _user_email_from_conn(conn, user_id).endswith('@srf.ch'):
+        conn.execute('UPDATE users SET default_holder_id=1 WHERE id=?', (user_id,))
+        return
     if conn.execute('SELECT 1 FROM drone_holders WHERE user_id=?', (user_id,)).fetchone():
         return
     _ensure_user_profile(conn, user_id)
