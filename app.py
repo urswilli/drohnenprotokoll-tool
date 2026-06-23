@@ -233,7 +233,8 @@ MANDATORY_FIELDS = [
 ]
 
 PREFILL_CLEAR_KEYS = {
-    'wetterlage', 'startzeit', 'landezeit', 'flugminuten', 'anzahl_fluege',
+    'drehort', 'koordinaten', 'wetterlage', 'startzeit', 'landezeit', 'flugminuten',
+    'anzahl_fluege',
 }
 
 
