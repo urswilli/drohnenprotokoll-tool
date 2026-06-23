@@ -104,7 +104,7 @@
         <label class="form-label fw-semibold">Firmenzugehörigkeit des Piloten <span class="text-danger">*</span></label>
         <input type="text" name="pilot_company" class="form-control" required
                value="{{ profile.pilot_company if profile else '' }}"
-               placeholder="z.B. TPC AG oder SRF">
+               placeholder="z.B. SRF">
       </div>
       <div class="col-md-6">
         <label class="form-label fw-semibold">Private Adresse des Piloten <span class="text-danger">*</span></label>
@@ -255,7 +255,7 @@
       <div class="col-md-4">
         <label class="form-label fw-semibold">Typ</label>
         <input type="text" name="drone_typ" id="droneTyp" class="form-control" required
-               placeholder="z.B. Mavic 3 Enterprise" value="{{ pf.get('drone_typ', '') }}">
+               placeholder="z.B. mini 4 Pro" value="{{ pf.get('drone_typ', '') }}">
       </div>
       <div class="col-md-4">
         <label class="form-label fw-semibold">Seriennummer</label>
@@ -310,7 +310,7 @@
       <div class="col-md-6">
         <label class="form-label fw-semibold">Drehort / Bezirk <span class="text-danger">*</span></label>
         <input type="text" name="drehort" id="drehort" class="form-control" required
-               placeholder="z.B. Zürich, Bezirk Zürich" value="{{ pf.get('drehort', '') }}">
+               placeholder="Strasse, PLZ Ort oder POI" value="{{ pf.get('drehort', '') }}">
       </div>
       <div class="col-md-6">
         <label class="form-label fw-semibold">Geo-Koordinaten <span class="text-danger">*</span></label>
@@ -546,7 +546,7 @@
       <button type="submit" class="btn btn-srg btn-lg px-4 fw-bold">
         <i class="bi bi-send-fill me-2"></i>PDF erstellen &amp; senden
       </button>
-      <button type="reset" class="btn btn-outline-secondary btn-lg px-4">
+      <button type="button" class="btn btn-outline-secondary btn-lg px-4" id="btnFormReset">
         <i class="bi bi-arrow-counterclockwise me-2"></i>Formular zurücksetzen
       </button>
     </div>
@@ -1015,6 +1015,22 @@ function initEmptyHighlight() {
   });
 }
 initEmptyHighlight();
+
+// Formular zurücksetzen: bei Continue-Prefill frisches Formular laden; sonst natives Reset
+const profilePilotCompany = {{ (profile.pilot_company if profile else '')|tojson }};
+const hasPrefill = {{ ((prefill|default({}))|length > 0)|tojson }};
+document.getElementById('btnFormReset')?.addEventListener('click', function() {
+  if (hasPrefill) {
+    window.location.href = {{ url_for('index')|tojson }};
+    return;
+  }
+  document.getElementById('drohnenForm')?.reset();
+  pilotCompanyManual = false;
+  if (pilotCompanyEl) setVal(pilotCompanyEl, profilePilotCompany);
+  document.querySelectorAll(
+    '#drohnenForm input:not([type=hidden]), #drohnenForm select, #drohnenForm textarea'
+  ).forEach(el => updateEmptyHighlight(el));
+});
 
 </script>
 {% endblock %}
