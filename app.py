@@ -1,6 +1,7 @@
 import os
 import io
 import json
+import re
 import sqlite3
 import time as _time
 import threading
@@ -13,7 +14,7 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 
 from flask import (Flask, render_template, request, redirect, url_for,
-                   session, jsonify, send_file, send_from_directory, flash)
+                   session, jsonify, send_file, send_from_directory, flash, Response)
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
@@ -1253,6 +1254,46 @@ def location_data():
         pass
 
     return jsonify(result)
+
+
+# ── DABS (Daily Airspace Bulletin Switzerland) ──────────────────────────────
+
+@app.route('/dabs')
+@login_required
+def dabs():
+    return render_template('dabs.html')
+
+
+@app.route('/dabs/pdf/<day>')
+@login_required
+def dabs_pdf(day):
+    if day not in ('today', 'tomorrow'):
+        abort(404)
+    try:
+        req = urllib.request.Request(
+            f'https://www.skybriefing.com/o/dabs?{day}',
+            headers={'User-Agent': 'Mozilla/5.0'}
+        )
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            ct = resp.headers.get('Content-Type', '')
+            if ct.startswith('application/pdf'):
+                data = resp.read()
+                d = date.today()
+                if day == 'tomorrow':
+                    d += timedelta(days=1)
+                filename = f'dabs-{d.isoformat()}.pdf'
+                return Response(
+                    data, content_type='application/pdf',
+                    headers={
+                        'Content-Disposition': f'inline; filename="{filename}"',
+                        'Cache-Control': 'no-store',
+                    }
+                )
+    except Exception as e:
+        app.logger.error(f'DABS PDF fetch error ({day}): {e}')
+    abort(502)
+
+# ────────────────────────────────────────────────────────────────────────────
 
 
 @app.route('/profile', methods=['GET', 'POST'])

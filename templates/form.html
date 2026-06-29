@@ -639,6 +639,7 @@ const isSrfUser = {{ is_srf_user|tojson }};
 // Firmenzugehörigkeit auto-fill: Halter ist immer Quelle; manuelles Tippen sperrt Overwrite
 const pilotCompanyEl = document.querySelector('[name="pilot_company"]');
 let pilotCompanyManual = false;
+let initialPilotCompany = '';
 pilotCompanyEl?.addEventListener('input', function(e) { if (e.isTrusted) pilotCompanyManual = true; });
 
 function updateHolder() {
@@ -703,6 +704,8 @@ function filterDrones(hid) {
 
 holderSelect?.addEventListener('change', updateHolder);
 updateHolder(); // Initialzustand
+// Wert nach initialem updateHolder() merken – wird beim Reset wiederhergestellt
+initialPilotCompany = pilotCompanyEl ? pilotCompanyEl.value : '';
 
 // Continue: Drohnen-Dropdown aus vorherigem Protokoll wiederherstellen
 (function restoreDronePrefill() {
@@ -1026,10 +1029,14 @@ document.getElementById('btnFormReset')?.addEventListener('click', function() {
   }
   document.getElementById('drohnenForm')?.reset();
   pilotCompanyManual = false;
-  if (pilotCompanyEl) setVal(pilotCompanyEl, profilePilotCompany);
-  document.querySelectorAll(
-    '#drohnenForm input:not([type=hidden]), #drohnenForm select, #drohnenForm textarea'
-  ).forEach(el => updateEmptyHighlight(el));
+  // setTimeout(0): stellt sicher, dass der Wert NACH allfälligen change-Events gesetzt wird,
+  // die form.reset() in manchen Browsern auf Select-Elementen auslöst.
+  setTimeout(function() {
+    if (pilotCompanyEl) setVal(pilotCompanyEl, initialPilotCompany || profilePilotCompany);
+    document.querySelectorAll(
+      '#drohnenForm input:not([type=hidden]), #drohnenForm select, #drohnenForm textarea'
+    ).forEach(el => updateEmptyHighlight(el));
+  }, 0);
 });
 
 </script>

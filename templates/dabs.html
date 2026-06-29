@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}DABS – Daily Airspace Bulletin Switzerland{% endblock %}
+
+{% block head %}
+<style>
+  .dabs-viewer-wrap {
+    position: relative;
+    border-radius: .5rem;
+    overflow: hidden;
+    box-shadow: 0 .25rem 1.5rem rgba(0,0,0,.12);
+  }
+  #dabsFrame {
+    width: 100%;
+    border: none;
+    display: block;
+    min-height: 75vh;
+    background: #f8f9fa;
+  }
+  .dabs-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    z-index: 2;
+    gap: .75rem;
+  }
+  .dabs-overlay.hidden { display: none; }
+  .dabs-tab-btn {
+    border-radius: 2rem !important;
+    padding: .35rem 1.2rem;
+    font-size: .875rem;
+  }
+  .dabs-tab-btn.active {
+    background-color: var(--srg-red) !important;
+    border-color: var(--srg-red) !important;
+    color: #fff !important;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-0">
+      <i class="bi bi-journal-text me-2 text-srg"></i>DABS – Daily Airspace Bulletin Switzerland
+    </h4>
+    <p class="text-muted small mb-0">Tägliches Luftraumbulletin der Schweiz · skyguide / skybriefing.com</p>
+  </div>
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <!-- Tag-Auswahl -->
+    <div class="btn-group" role="group">
+      <button class="btn btn-outline-secondary dabs-tab-btn active" id="btnToday" onclick="switchDay('today')">
+        <i class="bi bi-calendar-check me-1"></i>Heute
+      </button>
+      <button class="btn btn-outline-secondary dabs-tab-btn" id="btnTomorrow" onclick="switchDay('tomorrow')">
+        <i class="bi bi-calendar me-1"></i>Morgen
+      </button>
+    </div>
+    <button class="btn btn-outline-secondary btn-sm" id="btnReload" title="Neu laden" onclick="reload()">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+    <a id="linkDownload" href="/dabs/pdf/today" download
+       class="btn btn-outline-secondary btn-sm" title="PDF herunterladen">
+      <i class="bi bi-download"></i>
+    </a>
+  </div>
+</div>
+
+<!-- Datumsanzeige -->
+<div class="text-muted small mb-2" id="dabsDateLabel"></div>
+
+<!-- PDF-Viewer -->
+<div class="dabs-viewer-wrap">
+  <div class="dabs-overlay" id="dabsOverlay">
+    <div class="spinner-border text-secondary" role="status" style="width:2.5rem;height:2.5rem;">
+      <span class="visually-hidden">Lädt…</span>
+    </div>
+    <div class="text-muted small" id="dabsLoadMsg">DABS wird geladen…</div>
+  </div>
+  <iframe id="dabsFrame" src="about:blank"
+          title="DABS – Daily Airspace Bulletin Switzerland"></iframe>
+</div>
+
+<div class="text-muted small mt-2">
+  <i class="bi bi-info-circle me-1"></i>
+  Das DABS wird täglich von <strong>skyguide</strong> publiziert und kann bis zu viermal täglich
+  aktualisiert werden (09:00, 13:00, 16:00 Ortszeit). Publikation für den Folgetag: 16:00 Uhr.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var DAYS   = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+  var MONTHS = ['Januar','Februar','März','April','Mai','Juni',
+                'Juli','August','September','Oktober','November','Dezember'];
+
+  var currentDay = 'today';
+  var currentBlob = null;
+
+  function fmtDate(d) {
+    return DAYS[d.getDay()] + ', ' + d.getDate() + '. ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+  }
+
+  function updateLabel() {
+    var d = new Date();
+    if (currentDay === 'tomorrow') d.setDate(d.getDate() + 1);
+    var label = (currentDay === 'today' ? 'Heute, ' : 'Morgen, ') + fmtDate(d);
+    document.getElementById('dabsDateLabel').textContent = label;
+  }
+
+  function showLoader(msg) {
+    document.getElementById('dabsLoadMsg').textContent = msg || 'DABS wird geladen…';
+    document.getElementById('dabsOverlay').classList.remove('hidden');
+  }
+
+  function hideLoader() {
+    document.getElementById('dabsOverlay').classList.add('hidden');
+  }
+
+  function loadPdf(day, bustCache) {
+    showLoader();
+    var url = '/dabs/pdf/' + day + (bustCache ? '?r=' + Date.now() : '');
+    fetch(url)
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob();
+      })
+      .then(function (blob) {
+        if (currentBlob) URL.revokeObjectURL(currentBlob);
+        currentBlob = URL.createObjectURL(blob);
+        var frame = document.getElementById('dabsFrame');
+        frame.onload = hideLoader;
+        frame.src = currentBlob;
+        document.getElementById('linkDownload').href = url;
+      })
+      .catch(function (err) {
+        showLoader('Fehler beim Laden des DABS. Bitte neu laden.');
+        console.error('DABS PDF error:', err);
+      });
+  }
+
+  window.switchDay = function (day) {
+    currentDay = day;
+    document.getElementById('btnToday').classList.toggle('active', day === 'today');
+    document.getElementById('btnTomorrow').classList.toggle('active', day === 'tomorrow');
+    updateLabel();
+    loadPdf(day);
+  };
+
+  window.reload = function () {
+    var btn = document.getElementById('btnReload');
+    btn.disabled = true;
+    loadPdf(currentDay, true);
+    setTimeout(function () { btn.disabled = false; }, 3000);
+  };
+
+  updateLabel();
+  loadPdf('today');
+})();
+</script>
+{% endblock %}
