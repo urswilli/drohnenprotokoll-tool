@@ -142,12 +142,28 @@ STATIC_ASSET_VERSION = APP_VERSION_COUNT or 'dev'
 CHANGELOG = _get_changelog()
 
 
+THEME_MODES = ('light', 'dark', 'system')
+
+
+def _valid_theme_mode(mode):
+    return mode if mode in THEME_MODES else 'system'
+
+
 @app.context_processor
 def inject_version():
+    theme_mode = 'system'
+    if 'user_id' in session:
+        with get_db() as conn:
+            row = conn.execute(
+                'SELECT theme_mode FROM users WHERE id=?', (session['user_id'],)
+            ).fetchone()
+            if row and row['theme_mode']:
+                theme_mode = _valid_theme_mode(row['theme_mode'])
     return {
         'app_version': APP_VERSION,
         'changelog': CHANGELOG,
         'static_asset_version': STATIC_ASSET_VERSION,
+        'theme_mode': theme_mode,
     }
 
 WEATHER_CODES = {
@@ -357,6 +373,10 @@ def init_db():
             pass
         try:
             conn.execute("ALTER TABLE users ADD COLUMN default_holder_id INTEGER")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN theme_mode TEXT DEFAULT 'system'")
         except Exception:
             pass
         if conn.execute('SELECT COUNT(*) FROM sendeformate').fetchone()[0] == 0:
@@ -798,7 +818,7 @@ def send_email(form_data, pdf_path, filename):
         if is_srf:
             to_list.append('eng-service@srf.ch')
         cc_list = []
-        if form_data.get('rcpt_cc_eva', 'on') == 'on' and eva_email:
+        if eva_email:
             cc_list.append(eva_email)
         if form_data.get('rcpt_cc_pilot', 'on') == 'on' and pilot_email:
             cc_list.append(pilot_email)
@@ -1147,6 +1167,7 @@ def submit():
 
     is_srf_holder = _is_srf_holder_company(form_data.get('drone_holder_company', ''))
     form_data['rcpt_drohnen'] = 'on'
+    form_data['rcpt_cc_eva'] = 'on'
     if is_srf_holder:
         form_data['rcpt_eng_service'] = 'on'
 
@@ -1205,6 +1226,19 @@ def download(filename):
         return redirect(url_for('index'))
     return send_file(file_path, as_attachment=True, download_name=safe_name,
                      mimetype='application/pdf')
+
+
+@app.route('/api/theme', methods=['POST'])
+@login_required
+def api_theme():
+    data = request.get_json(silent=True) or {}
+    mode = (data.get('mode') or request.form.get('mode') or '').strip().lower()
+    if mode not in THEME_MODES:
+        return jsonify({'ok': False, 'error': 'Ungültiger Modus'}), 400
+    with get_db() as conn:
+        conn.execute('UPDATE users SET theme_mode=? WHERE id=?', (mode, session['user_id']))
+        conn.commit()
+    return jsonify({'ok': True, 'mode': mode})
 
 
 @app.route('/api/location-data')

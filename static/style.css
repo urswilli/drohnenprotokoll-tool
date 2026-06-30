@@ -45,6 +45,14 @@ body.login-bg { background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%); }
   box-shadow: 0 0 0 .2rem rgba(200,16,46,.15);
 }
 
+/* ── Readonly / non-editable fields ── */
+.form-control.field-readonly,
+.form-control.field-readonly[readonly] {
+  background-color: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
 /* ── Location action bar (prominent weather button) ── */
 .location-action-bar {
   border-left: 4px solid var(--srg-red);
@@ -77,4 +85,72 @@ body.login-bg { background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%); }
 }
 .section-header[data-bs-toggle="collapse"]:not(.collapsed) .collapse-chevron {
   transform: rotate(0deg);
+}
+
+/* ── Theme toggle ── */
+[data-theme-mode].active { font-weight: 600; }
+[data-bs-theme="dark"] [data-theme-mode].active {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Dark mode overrides ── */
+[data-bs-theme="dark"] .section-header {
+  background: linear-gradient(135deg, #343a40 0%, #2b3035 100%);
+  color: #e9ecef;
+}
+
+[data-bs-theme="dark"] body.login-bg {
+  background: linear-gradient(135deg, #1a1a2e 0%, #12121f 100%);
+}
+
+[data-bs-theme="dark"] .location-action-bar {
+  background: linear-gradient(135deg, #212529 0%, #1a1f24 100%);
+}
+
+[data-bs-theme="dark"] .list-group-item:nth-child(even):not(.ps-5) {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+[data-bs-theme="dark"] .list-group-item.ps-5 {
+  border-left-color: #495057;
+}
+
+[data-bs-theme="dark"] .auto-filled {
+  border-color: #198754 !important;
+  background-color: rgba(25, 135, 84, 0.15) !important;
+}
+
+[data-bs-theme="dark"] .field-empty {
+  border-color: #d97706 !important;
+  background-color: rgba(217, 119, 6, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+  box-shadow: 0 0 0 .2rem rgba(200, 16, 46, 0.25);
+}
+
+[data-bs-theme="dark"] #themeToggleGuest {
+  background-color: var(--bs-body-bg);
+}
+
+[data-bs-theme="dark"] .form-control.field-readonly,
+[data-bs-theme="dark"] .form-control.field-readonly[readonly] {
+  background-color: #2b3035;
+  color: #adb5bd;
+  border-color: #495057;
+}
+
+[data-bs-theme="dark"] .table-light {
+  --bs-table-bg: #343a40;
+  --bs-table-color: #dee2e6;
+  --bs-table-border-color: #495057;
+  --bs-table-striped-bg: #3d444b;
+  --bs-table-hover-bg: #3d444b;
+}
+
+[data-bs-theme="dark"] thead.table-light th {
+  background-color: #343a40;
+  color: #dee2e6;
+  border-color: #495057;
 }

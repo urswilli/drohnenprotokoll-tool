@@ -62,14 +62,14 @@
     <div class="row g-3">
       <div class="col-md-6">
         <label class="form-label text-muted small">Firmenname</label>
-        <input type="text" class="form-control bg-light" id="holderCompanyDisplay" readonly
+        <input type="text" class="form-control field-readonly" id="holderCompanyDisplay" readonly
                value="{{ ns.default_holder.name if ns.default_holder else '' }}">
         <input type="hidden" name="drone_holder_company" id="holderCompanyHidden"
                value="{{ ns.default_holder.name if ns.default_holder else '' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label text-muted small">Adresse</label>
-        <input type="text" class="form-control bg-light" id="holderAddressDisplay" readonly
+        <input type="text" class="form-control field-readonly" id="holderAddressDisplay" readonly
                value="{{ ns.default_holder.address if ns.default_holder else '' }}">
         <input type="hidden" name="drone_holder_address" id="holderAddressHidden"
                value="{{ ns.default_holder.address if ns.default_holder else '' }}">
@@ -518,9 +518,10 @@
         <input type="checkbox" class="form-check-input" id="rcptDrohnenDisplay" checked disabled>
         <label class="form-check-label" for="rcptDrohnenDisplay">drohnen@srf.ch</label>
       </div>
+      <input type="hidden" name="rcpt_cc_eva" value="on">
       <div class="form-check">
-        <input type="checkbox" class="form-check-input" name="rcpt_cc_eva" id="rcptCcEva" value="on" checked>
-        <label class="form-check-label" for="rcptCcEva">CC Einsatzverantwortliche/r SRG</label>
+        <input type="checkbox" class="form-check-input" id="rcptCcEvaDisplay" checked disabled>
+        <label class="form-check-label" for="rcptCcEvaDisplay"><span id="rcptCcEvaEmail">{{ pf.get('eva_email', '') or 'Einsatzverantwortliche/r SRG' }}</span></label>
       </div>
       <div class="form-check mb-2">
         <input type="checkbox" class="form-check-input" name="rcpt_cc_pilot" id="rcptCcPilot" value="on" checked>
@@ -750,6 +751,11 @@ document.getElementById('landezeit')?.addEventListener('change', calcFlugminuten
 document.getElementById('flugminuten')?.addEventListener('change', calcLandezeit);
 
 // Sync EVA-Signaturfelder aus Sektion 3
+function updateRcptCcEvaEmail() {
+  const email = document.getElementById('evaEmail')?.value?.trim() || '';
+  const el = document.getElementById('rcptCcEvaEmail');
+  if (el) el.textContent = email || 'Einsatzverantwortliche/r SRG';
+}
 function syncEva() {
   const name  = document.getElementById('evaName')?.value  || '';
   const email = document.getElementById('evaEmail')?.value || '';
@@ -757,6 +763,7 @@ function syncEva() {
   const sigEmail = document.getElementById('evaSignatureEmail');
   if (sigName  && !sigName.dataset.manuallyEdited)  setVal(sigName,  name);
   if (sigEmail && !sigEmail.dataset.manuallyEdited) setVal(sigEmail, email);
+  updateRcptCcEvaEmail();
 }
 ['evaSignatureName','evaSignatureEmail'].forEach(id => {
   document.getElementById(id)?.addEventListener('input', function(e) {
