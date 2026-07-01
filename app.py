@@ -176,24 +176,29 @@ WEATHER_CODES = {
     95: 'Gewitter', 96: 'Gewitter mit Hagel', 99: 'Gewitter mit starkem Hagel',
 }
 
+# Jeder Eintrag: (num, kind, label, text)
+# - num:   Checkbox-Nummer (1-17), passend zu den 17 "Check Box"-Feldern im PDF. None = kein Kontrollkästchen (Zwischentitel).
+# - kind:  'main' (nummerierter Haupteintrag mit Checkbox), 'sub' (Untereintrag mit Checkbox), 'header' (Zwischentitel ohne Checkbox)
+# - label: Anzeige-Nummerierung wie im PDF (z.B. "3." oder "3.1")
 CHECKLIST_ITEMS = [
-    (1,  False, 'Startplatz, Flugweg, Landeplatz und Notlandeplatz sind festgelegt.'),
-    (2,  False, 'Luftfahrthindernisse sind bekannt.'),
-    (3,  True,  'Einschränkungen des Luftraums bekannt – Abstand zu Flugpiste oder Helikopterlandeplatz eingehalten.'),
-    (4,  True,  'Einschränkungen des Luftraums bekannt – Einschränkungen wegen Kontrollzone (CTR) berücksichtigt.'),
-    (5,  True,  'Einschränkungen des Luftraums bekannt – NOTAM* und DABS** eingesehen und berücksichtigt.'),
-    (6,  True,  'Einschränkungen des Luftraums bekannt – Weitere Luftraumsperrungen (militärische Anlagen, Jagdbanngebiete etc.) berücksichtigt.'),
-    (7,  False, 'Flugwetterprognose (inkl. Windverhältnisse) eingeholt und für Einsatzort berücksichtigt.'),
-    (8,  False, 'Technische Einschränkungen wie elektromagnetische Strahlung etc. für Betrieb der Drohne berücksichtigt.'),
-    (9,  False, 'Die Drohne wird bezüglich Übernahme der Steuerung durch Dritte (Hijacking) entsprechend den Herstellervorgaben verwendet.'),
-    (10, False, 'Beurteilung über Sicherheitsrisiken durch den Drohnenpiloten erfolgt und dokumentiert (Logbucheintrag).'),
-    (11, False, 'Beim Flug der Drohne sind anwesende Personen instruiert, wo sie sich aufhalten dürfen.'),
-    (12, False, 'Menschenansammlungen werden nicht überflogen. Eine Risikobeurteilung wurde gemacht.'),
-    (13, False, 'Nie tief über Privatgrundstücke oder öffentliche Orte mit Personen geflogen (Privatsphäre).'),
-    (14, False, 'Bestimmbare Personen werden nur mit Einwilligung oder überwiegendem öffentlichem Interesse gefilmt.'),
-    (15, False, 'Die Drohne ist sachgemäss gewartet, Firmware der Drohne und des Controllers sind aktuell.'),
-    (16, False, 'Akkus werden gemäss geltenden Anweisungen eingesetzt, transportiert und ersetzt.'),
-    (17, False, 'Ladezustand der Akkus ist bei Planung der Flugdauer und Witterung (spez. Temperatur) berücksichtigt.'),
+    (1,  'main',   '1.',  'Startplatz, Flugweg, Landeplatz und Notlandeplatz sind festgelegt.'),
+    (2,  'main',   '2.',  'Luftfahrthindernisse sind bekannt.'),
+    (None, 'header', '3.', 'Einschränkungen des Luftraums bekannt:'),
+    (3,  'sub',    '3.a', 'Abstand zu einer Flugpiste oder Helikopterlandeplatz eingehalten.'),
+    (4,  'sub',    '3.b', 'Einschränkungen wegen Kontrollzone (CTR) berücksichtigt.'),
+    (5,  'sub',    '3.c', 'NOTAM* und DABS** eingesehen und berücksichtigt.'),
+    (6,  'sub',    '3.d', 'Weitere Luftraumsperrungen (beispielsweise militärische Anlagen, Jagdbanngebiete oder Schutzgebiete für Wasser- und Zugvögel) berücksichtigt.'),
+    (7,  'main',   '4.',  'Flugwetterprognose (inkl. Windverhältnisse) eingeholt und für Einsatzort berücksichtigt.'),
+    (8,  'main',   '5.',  'Technische Einschränkungen wie elektromagnetische Strahlung etc. für Betrieb der Drohne berücksichtigt.'),
+    (9,  'main',   '6.',  'Die Drohne wird in Bezug auf eine Übernahme der Steuerung durch Dritte (Hijacking) entsprechend den Vorgaben des Herstellers verwendet und betrieben.'),
+    (10, 'main',   '7.',  'Beurteilung über Sicherheitsrisiken durch den Drohnenpiloten erfolgt und dokumentiert.'),
+    (11, 'main',   '8.',  'Beim Flug der Drohne sind anwesende Personen instruiert, wo sie sich aufhalten dürfen, und eventuelle Überwachungsaufgaben wurden ihnen zugeteilt.'),
+    (12, 'main',   '9.',  'Menschenansammlungen (eine Vielzahl von Menschen, die so dicht gedrängt stehen, dass es einer einzelnen Person nahezu unmöglich ist, sich aus dieser Menge zu entfernen) werden nicht überflogen. Eine Risikobeurteilung wurde gemacht.'),
+    (13, 'main',   '10.', 'Nie tief über Privatgrundstücke oder öffentliche Orte mit Personen geflogen (Privatsphäre).'),
+    (14, 'main',   '11.', 'Bestimmbare Personen werden nur mit Einwilligung oder überwiegendem öffentlichem Interesse gefilmt.'),
+    (15, 'main',   '12.', 'Die Drohne ist sachgemäss gewartet, Firmware der Drohne und des Controllers sind aktuell.'),
+    (16, 'main',   '13.', 'Akkus werden gemäss geltenden Anweisungen eingesetzt, transportiert und ersetzt.'),
+    (17, 'main',   '14.', 'Ladezustand der Akkus ist bei Planung der Flugdauer und Witterung (spez. Temperatur) berücksichtigt.'),
 ]
 
 SENDEFORMATE = [
