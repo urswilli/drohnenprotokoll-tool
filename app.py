@@ -34,7 +34,10 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,   # kein JavaScript-Zugriff auf Session-Cookie
     SESSION_COOKIE_SECURE=_secure_cookie,  # lokal: SESSION_COOKIE_SECURE=false
     SESSION_COOKIE_SAMESITE='Lax',  # CSRF-Schutz: Cookie nicht bei Cross-Site-Requests
-    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+    # Permanent sessions (PWA / «angemeldet bleiben» ohne Checkbox): 30 Tage,
+    # bei jedem Request verlängert (SESSION_REFRESH_EACH_REQUEST).
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+    SESSION_REFRESH_EACH_REQUEST=True,
 )
 # ────────────────────────────────────────────────────────────────────────────
 
@@ -1050,6 +1053,7 @@ def login():
             if test_mode_on() and not user['is_admin']:
                 flash('Testmodus aktiv – Login zurzeit nur für Administratoren möglich.', 'warning')
                 return render_template('login.html', test_mode=test_mode_on())
+            session.permanent = True  # 30 Tage, bei Nutzung verlängert (PWA)
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['is_admin'] = bool(user['is_admin'])
