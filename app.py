@@ -3,7 +3,9 @@ import io
 import json
 import re
 import socket
+import ssl
 import sqlite3
+import http.client
 import time as _time
 import threading
 import urllib.request
@@ -632,33 +634,96 @@ def _turnstile_secret():
     return os.environ.get('TURNSTILE_SECRET', '').strip()
 
 
-_turnstile_gai_lock = threading.Lock()
+_TURNSTILE_HOST = 'challenges.cloudflare.com'
+_TURNSTILE_IP_TTL = 3600.0  # 1h — Docker DNS here is ~4s; avoid paying that per login
+_turnstile_ip_lock = threading.Lock()
+_turnstile_ip_cache = {'ip': None, 'expires': 0.0}
 
 
-def _turnstile_siteverify(secret, token, timeout=3):
-    """POST canonical siteverify; force IPv4 to avoid Docker IPv6 connect hangs."""
+def _turnstile_resolve_ipv4():
+    """Return cached IPv4 for Turnstile host; resolve on miss/expiry."""
+    now = _time.monotonic()
+    with _turnstile_ip_lock:
+        if _turnstile_ip_cache['ip'] and now < _turnstile_ip_cache['expires']:
+            return _turnstile_ip_cache['ip']
+    infos = socket.getaddrinfo(
+        _TURNSTILE_HOST, 443, socket.AF_INET, socket.SOCK_STREAM)
+    if not infos:
+        raise OSError(f'no IPv4 address for {_TURNSTILE_HOST}')
+    ip = infos[0][4][0]
+    with _turnstile_ip_lock:
+        _turnstile_ip_cache['ip'] = ip
+        _turnstile_ip_cache['expires'] = _time.monotonic() + _TURNSTILE_IP_TTL
+    return ip
+
+
+def _turnstile_dns_keeper():
+    """Background refresh so logins never block on slow Docker DNS (~4s)."""
+    while True:
+        try:
+            infos = socket.getaddrinfo(
+                _TURNSTILE_HOST, 443, socket.AF_INET, socket.SOCK_STREAM)
+            if infos:
+                ip = infos[0][4][0]
+                with _turnstile_ip_lock:
+                    _turnstile_ip_cache['ip'] = ip
+                    _turnstile_ip_cache['expires'] = (
+                        _time.monotonic() + _TURNSTILE_IP_TTL)
+                app.logger.info('Turnstile DNS cache refreshed ip=%s', ip)
+        except Exception as e:
+            app.logger.warning('Turnstile DNS refresh failed: %s', e)
+        _time.sleep(300)
+
+
+class _HTTPSConnectionToIP(http.client.HTTPSConnection):
+    """HTTPS to a fixed IPv4 while keeping hostname for SNI/Host (cert verify)."""
+
+    def __init__(self, hostname, ip, **kwargs):
+        self._connect_ip = ip
+        super().__init__(hostname, **kwargs)
+
+    def connect(self):
+        self.sock = socket.create_connection(
+            (self._connect_ip, self.port), self.timeout, self.source_address)
+        if self._tunnel_host:
+            self._tunnel()
+        self.sock = self._context.wrap_socket(
+            self.sock, server_hostname=self.host)
+
+
+def _turnstile_siteverify(secret, token, timeout=2.5):
+    """POST canonical siteverify via cached IPv4 (skip slow/broken Docker DNS/IPv6)."""
+    t0 = _time.monotonic()
     body = urllib.parse.urlencode({
         'secret': secret,
         'response': token,
     }).encode()
-    req = urllib.request.Request(
-        'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-        data=body,
-        method='POST',
-        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+    ip = _turnstile_resolve_ipv4()
+    t_dns = (_time.monotonic() - t0) * 1000
+    # Prefer the same HTTPS context urllib uses (works in Docker with ca-certificates).
+    ctx = ssl._create_default_https_context()
+    conn = _HTTPSConnectionToIP(_TURNSTILE_HOST, ip, timeout=timeout, context=ctx)
+    try:
+        conn.request(
+            'POST', '/turnstile/v0/siteverify', body=body,
+            headers={
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Host': _TURNSTILE_HOST,
+            },
+        )
+        resp = conn.getresponse()
+        raw = resp.read().decode()
+        if resp.status != 200:
+            raise OSError(f'siteverify HTTP {resp.status}: {raw[:200]}')
+        result = json.loads(raw)
+    finally:
+        conn.close()
+    total_ms = (_time.monotonic() - t0) * 1000
+    app.logger.info(
+        'Turnstile siteverify ok_shape=%s dns=%.0fms total=%.0fms ip=%s',
+        result.get('success'), t_dns, total_ms, ip,
     )
-    real_gai = socket.getaddrinfo
-
-    def ipv4_gai(host, port, family=0, type=0, proto=0, flags=0):
-        return real_gai(host, port, socket.AF_INET, type, proto, flags)
-
-    with _turnstile_gai_lock:
-        socket.getaddrinfo = ipv4_gai
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode())
-        finally:
-            socket.getaddrinfo = real_gai
+    return result
 
 
 def _turnstile_error():
@@ -667,8 +732,8 @@ def _turnstile_error():
     Fail closed when secret is set. Distinct messages for missing secret vs missing
     token vs Cloudflare rejection / network errors. Logs never include secret or token.
     remoteip is omitted: behind Docker/cloudflared an internal IP can break siteverify.
-    Siteverify forces IPv4 (timeout 3s): Python/urllib otherwise often hangs for many
-    seconds on broken Docker IPv6 before falling back to IPv4.
+    Siteverify dials a cached IPv4 for challenges.cloudflare.com (timeout 2.5s) so
+    broken Docker IPv6 / slow DNS cannot stall login for many seconds.
     """
     secret = _turnstile_secret()
     token = request.form.get('cf-turnstile-response', '').strip()
@@ -689,7 +754,7 @@ def _turnstile_error():
         )
         return 'Bitte die Sicherheitsprüfung abschliessen und erneut versuchen.'
     try:
-        result = _turnstile_siteverify(secret, token, timeout=3)
+        result = _turnstile_siteverify(secret, token, timeout=2.5)
     except Exception as e:
         app.logger.error('Turnstile siteverify request failed: %s', e)
         return 'Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.'
@@ -1968,6 +2033,7 @@ def _pdf_cleanup_loop():
         _time.sleep(86400)
 
 threading.Thread(target=_pdf_cleanup_loop, daemon=True, name='pdf-cleanup').start()
+threading.Thread(target=_turnstile_dns_keeper, daemon=True, name='turnstile-dns').start()
 
 # Initialisierung beim Start (sowohl via Gunicorn als auch python3 app.py)
 init_db()
