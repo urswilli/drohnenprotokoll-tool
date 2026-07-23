@@ -37,6 +37,7 @@ sudo chown -R 1001:1001 "$STACK_DIR/data"
 Then deploy via Portainer (Stacks → Add Stack → Repository) with environment variables:
 
 - `SECRET_KEY` = output of `python3 -c "import secrets; print(secrets.token_hex(32))"`
+- `TURNSTILE_SECRET` = secret from the Cloudflare Turnstile widget (Dashboard; never commit)
 - `DATA_DIR` = `/app/data`
 - `CLOUDFLARE_TUNNEL_TOKEN` = token from the Cloudflare Zero Trust dashboard (only if the `cloudflared` service is used)
 
@@ -52,9 +53,11 @@ Then deploy via Portainer (Stacks → Add Stack → Repository) with environment
 
 `prod-import/` ist gitignored (nur `.gitkeep` versioniert).
 
-**Local dev:** `./run-local.sh` (setzt `DATA_DIR=./data`, `SESSION_COOKIE_SECURE=false` für http://localhost:5050).
+**Local dev:** `./run-local.sh` (setzt `DATA_DIR=./data`, `SESSION_COOKIE_SECURE=false` für http://localhost:5050; lädt `.env` falls vorhanden, z.B. für `TURNSTILE_SECRET`).
 
 `SECRET_KEY` falls back to a hardcoded dev string when not set.
+
+**Cloudflare Turnstile:** Guest POST forms (`/login`, `/register`, `/forgot-password`) embed the managed widget (`templates/_turnstile.html`, site key `TURNSTILE_SITE_KEY`, `data-action="turnstile-spin-v2"`). Server-side `_verify_turnstile()` POSTs to `https://challenges.cloudflare.com/turnstile/v0/siteverify` with `TURNSTILE_SECRET`, token, and client IP (`X-Forwarded-For` first hop behind the tunnel). Fail closed if secret/token missing or `success` is not true.
 
 ## Architecture
 
@@ -105,7 +108,7 @@ Single-file Flask app (`app.py`) — no blueprints, no separate models file. `in
 
 **Generic mail helper:** `send_simple_email(to, subject, body)` — plain-text mail using the same SMTP settings as `send_email()`; used by feedback, password reset, and approval notifications.
 
-**Frontend:** Bootstrap 5.3 + Bootstrap Icons via CDN. `static/style.css` defines brand colours (`--srg-red: #c8102e`), `.field-readonly` (non-editable form fields), dark-mode overrides (`[data-bs-theme="dark"]`), and `.field-empty` (orange border, yellow background) for real-time empty-field highlighting. `static/theme.js` + navbar/guest dropdown toggle Hell/Dunkel/System; early inline script in `base.html` sets `data-bs-theme` before paint; `POST /api/theme` persists choice to `users.theme_mode`. `static/app.js` handles GPS/weather fetch, drone dropdown autofill, flight-minutes calculation, and Drehdatum→Datum sync. Per-template JS lives in `{% block scripts %}`.
+**Frontend:** Bootstrap 5.3 + Bootstrap Icons via CDN. `static/style.css` defines brand colours (`--srg-red: #c8102e`), `.field-readonly` (non-editable form fields), dark-mode overrides (`[data-bs-theme="dark"]`, including `#mapModal` search/footer bars), and `.field-empty` (orange border, yellow background) for real-time empty-field highlighting. Navbar links get `.active` via `request.endpoint` in `base.html` (white text + border). `static/theme.js` + navbar/guest dropdown toggle Hell/Dunkel/System; early inline script in `base.html` sets `data-bs-theme` before paint; `POST /api/theme` persists choice to `users.theme_mode`. `static/app.js` handles GPS/weather fetch, drone dropdown autofill, flight-minutes calculation, and Drehdatum→Datum sync. Per-template JS lives in `{% block scripts %}` — e.g. `form.html` `generateEvaEmail()` converts ä/ö/ü to ae/oe/ue for auto-generated EVA addresses; section action buttons («Ort auf Karte wählen», «Aktuelles Wetter einfügen», «Aktueller Standort») use `btn-srg btn-sm` in card headers / map modal.
 
 **Empty-field highlighting:** `initEmptyHighlight()` in `form.html` toggles `.field-empty` on `input`/`change`/`blur`. Because programmatic `.value =` assignments don't fire those events, every autofill path must dispatch a synthetic `input` event so the highlight clears: `setField`/`setTextarea` and the Drehdatum/flight-minutes sync in `app.js`, and the `setVal(el, v)` helper used by the drone dropdown, Sendeformat, flight-minutes and EVA-signature sync in `form.html`.
 

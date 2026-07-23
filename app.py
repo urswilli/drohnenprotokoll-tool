@@ -49,6 +49,10 @@ DATA_DIR   = os.environ.get('DATA_DIR', BASE_DIR)
 DB_PATH    = os.path.join(DATA_DIR, 'drohnen.db')
 OUTPUT_DIR = os.path.join(DATA_DIR, 'output')
 
+# Cloudflare Turnstile (public site key; secret only via env)
+TURNSTILE_SITE_KEY = '0x4AAAAAAD8Q9RsakUM8iJ_t'
+TURNSTILE_SECRET = os.environ.get('TURNSTILE_SECRET', '')
+
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -164,6 +168,7 @@ def inject_version():
         'changelog': CHANGELOG,
         'static_asset_version': STATIC_ASSET_VERSION,
         'theme_mode': theme_mode,
+        'turnstile_site_key': TURNSTILE_SITE_KEY,
     }
 
 WEATHER_CODES = {
@@ -623,6 +628,36 @@ def login_required(f):
     return wrapper
 
 
+def _client_ip():
+    """Client IP behind Cloudflare Tunnel (first X-Forwarded-For hop) or remote_addr."""
+    forwarded = request.headers.get('X-Forwarded-For', '').split(',')[0].strip()
+    return forwarded or (request.remote_addr or '')
+
+
+def _verify_turnstile():
+    """Canonical Cloudflare Turnstile siteverify. Fail closed on missing secret/token/errors."""
+    token = request.form.get('cf-turnstile-response', '').strip()
+    if not TURNSTILE_SECRET or not token:
+        return False
+    body = urllib.parse.urlencode({
+        'secret': TURNSTILE_SECRET,
+        'response': token,
+        'remoteip': _client_ip(),
+    }).encode()
+    try:
+        req = urllib.request.Request(
+            'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+            data=body,
+            method='POST',
+            headers={'Content-Type': 'application/x-www-form-urlencoded'},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read().decode())
+        return result.get('success') is True
+    except Exception:
+        return False
+
+
 @app.after_request
 def _set_security_headers(response):
     """Sicherheits-Header für alle Antworten."""
@@ -867,6 +902,9 @@ def send_email(form_data, pdf_path, filename):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        if not _verify_turnstile():
+            flash('Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.', 'danger')
+            return render_template('login.html', test_mode=test_mode_on())
         username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
         with get_db() as conn:
@@ -899,6 +937,9 @@ def logout():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        if not _verify_turnstile():
+            flash('Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.', 'danger')
+            return render_template('register.html', test_mode=test_mode_on())
         name     = request.form.get('name', '').strip()
         email    = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
@@ -962,6 +1003,9 @@ def register():
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
+        if not _verify_turnstile():
+            flash('Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.', 'danger')
+            return render_template('forgot_password.html', test_mode=test_mode_on())
         email = request.form.get('email', '').strip().lower()
         with get_db() as conn:
             user = conn.execute(

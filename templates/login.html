@@ -26,10 +26,11 @@
             <label class="form-label fw-semibold">E-Mail / Benutzername</label>
             <input type="text" name="username" class="form-control" placeholder="vorname.nachname@srf.ch" autofocus required>
           </div>
-          <div class="mb-4">
+          <div class="mb-3">
             <label class="form-label fw-semibold">Passwort</label>
             <input type="password" name="password" class="form-control" required>
           </div>
+          {% include '_turnstile.html' %}
           <button type="submit" class="btn btn-srg w-100 fw-semibold">
             <i class="bi bi-box-arrow-in-right me-1"></i> Anmelden
           </button>

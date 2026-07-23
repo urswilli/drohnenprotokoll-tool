@@ -7,6 +7,7 @@ services:
       - ./data:/app/data
     environment:
       - SECRET_KEY=${SECRET_KEY}
+      - TURNSTILE_SECRET=${TURNSTILE_SECRET}
       - DATA_DIR=/app/data
     security_opt:
       - no-new-privileges:true
@@ -45,6 +46,7 @@ networks:
 #   Compose path: docker-compose.yml
 #   → unter "Environment variables" eintragen:
 #       SECRET_KEY              = <python3 -c "import secrets; print(secrets.token_hex(32))">
+#       TURNSTILE_SECRET        = <secret from Cloudflare Turnstile widget>
 #       DATA_DIR                = /app/data
 #       CLOUDFLARE_TUNNEL_TOKEN = <token aus Cloudflare Zero Trust Dashboard>
 #
