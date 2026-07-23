@@ -2,6 +2,7 @@ import os
 import io
 import json
 import re
+import socket
 import sqlite3
 import time as _time
 import threading
@@ -631,12 +632,43 @@ def _turnstile_secret():
     return os.environ.get('TURNSTILE_SECRET', '').strip()
 
 
+_turnstile_gai_lock = threading.Lock()
+
+
+def _turnstile_siteverify(secret, token, timeout=3):
+    """POST canonical siteverify; force IPv4 to avoid Docker IPv6 connect hangs."""
+    body = urllib.parse.urlencode({
+        'secret': secret,
+        'response': token,
+    }).encode()
+    req = urllib.request.Request(
+        'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+        data=body,
+        method='POST',
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+    )
+    real_gai = socket.getaddrinfo
+
+    def ipv4_gai(host, port, family=0, type=0, proto=0, flags=0):
+        return real_gai(host, port, socket.AF_INET, type, proto, flags)
+
+    with _turnstile_gai_lock:
+        socket.getaddrinfo = ipv4_gai
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode())
+        finally:
+            socket.getaddrinfo = real_gai
+
+
 def _turnstile_error():
     """Canonical Turnstile siteverify. Returns None if OK, else a German flash message.
 
     Fail closed when secret is set. Distinct messages for missing secret vs missing
     token vs Cloudflare rejection / network errors. Logs never include secret or token.
     remoteip is omitted: behind Docker/cloudflared an internal IP can break siteverify.
+    Siteverify forces IPv4 (timeout 3s): Python/urllib otherwise often hangs for many
+    seconds on broken Docker IPv6 before falling back to IPv4.
     """
     secret = _turnstile_secret()
     token = request.form.get('cf-turnstile-response', '').strip()
@@ -656,19 +688,8 @@ def _turnstile_error():
             request.host,
         )
         return 'Bitte die Sicherheitsprüfung abschliessen und erneut versuchen.'
-    body = urllib.parse.urlencode({
-        'secret': secret,
-        'response': token,
-    }).encode()
     try:
-        req = urllib.request.Request(
-            'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-            data=body,
-            method='POST',
-            headers={'Content-Type': 'application/x-www-form-urlencoded'},
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read().decode())
+        result = _turnstile_siteverify(secret, token, timeout=3)
     except Exception as e:
         app.logger.error('Turnstile siteverify request failed: %s', e)
         return 'Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.'
