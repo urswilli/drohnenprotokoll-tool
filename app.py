@@ -49,9 +49,8 @@ DATA_DIR   = os.environ.get('DATA_DIR', BASE_DIR)
 DB_PATH    = os.path.join(DATA_DIR, 'drohnen.db')
 OUTPUT_DIR = os.path.join(DATA_DIR, 'output')
 
-# Cloudflare Turnstile (public site key; secret only via env)
+# Cloudflare Turnstile (public site key; secret only via env, read live in verify)
 TURNSTILE_SITE_KEY = '0x4AAAAAAD8Q9RsakUM8iJ_t'
-TURNSTILE_SECRET = os.environ.get('TURNSTILE_SECRET', '')
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -628,21 +627,38 @@ def login_required(f):
     return wrapper
 
 
-def _client_ip():
-    """Client IP behind Cloudflare Tunnel (first X-Forwarded-For hop) or remote_addr."""
-    forwarded = request.headers.get('X-Forwarded-For', '').split(',')[0].strip()
-    return forwarded or (request.remote_addr or '')
+def _turnstile_secret():
+    return os.environ.get('TURNSTILE_SECRET', '').strip()
 
 
-def _verify_turnstile():
-    """Canonical Cloudflare Turnstile siteverify. Fail closed on missing secret/token/errors."""
+def _turnstile_error():
+    """Canonical Turnstile siteverify. Returns None if OK, else a German flash message.
+
+    Fail closed when secret is set. Distinct messages for missing secret vs missing
+    token vs Cloudflare rejection / network errors. Logs never include secret or token.
+    remoteip is omitted: behind Docker/cloudflared an internal IP can break siteverify.
+    """
+    secret = _turnstile_secret()
     token = request.form.get('cf-turnstile-response', '').strip()
-    if not TURNSTILE_SECRET or not token:
-        return False
+    if not secret:
+        app.logger.error(
+            'TURNSTILE_SECRET fehlt oder ist leer im Prozess – Turnstile fail-closed. '
+            'Env im laufenden Container prüfen (printenv), nicht nur Host-.env.'
+        )
+        return (
+            'Sicherheitsprüfung ist nicht konfiguriert. '
+            'Bitte Administrator kontaktieren.'
+        )
+    if not token:
+        app.logger.warning(
+            'Turnstile: kein cf-turnstile-response im POST (Widget nicht fertig, '
+            'Domain nicht erlaubt, oder Script blockiert). host=%s',
+            request.host,
+        )
+        return 'Bitte die Sicherheitsprüfung abschliessen und erneut versuchen.'
     body = urllib.parse.urlencode({
-        'secret': TURNSTILE_SECRET,
+        'secret': secret,
         'response': token,
-        'remoteip': _client_ip(),
     }).encode()
     try:
         req = urllib.request.Request(
@@ -653,9 +669,25 @@ def _verify_turnstile():
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             result = json.loads(resp.read().decode())
-        return result.get('success') is True
-    except Exception:
-        return False
+    except Exception as e:
+        app.logger.error('Turnstile siteverify request failed: %s', e)
+        return 'Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.'
+    if result.get('success') is True:
+        return None
+    codes = result.get('error-codes') or []
+    app.logger.warning(
+        'Turnstile siteverify rejected: codes=%s hostname=%s host=%s token_len=%d',
+        codes,
+        result.get('hostname'),
+        request.host,
+        len(token),
+    )
+    if 'invalid-input-secret' in codes:
+        return (
+            'Sicherheitsprüfung fehlgeschlagen (Secret ungültig). '
+            'Bitte Administrator kontaktieren.'
+        )
+    return 'Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.'
 
 
 @app.after_request
@@ -902,8 +934,9 @@ def send_email(form_data, pdf_path, filename):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        if not _verify_turnstile():
-            flash('Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.', 'danger')
+        turnstile_err = _turnstile_error()
+        if turnstile_err:
+            flash(turnstile_err, 'danger')
             return render_template('login.html', test_mode=test_mode_on())
         username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
@@ -937,8 +970,9 @@ def logout():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        if not _verify_turnstile():
-            flash('Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.', 'danger')
+        turnstile_err = _turnstile_error()
+        if turnstile_err:
+            flash(turnstile_err, 'danger')
             return render_template('register.html', test_mode=test_mode_on())
         name     = request.form.get('name', '').strip()
         email    = request.form.get('email', '').strip().lower()
@@ -1003,8 +1037,9 @@ def register():
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
-        if not _verify_turnstile():
-            flash('Sicherheitsprüfung fehlgeschlagen. Bitte erneut versuchen.', 'danger')
+        turnstile_err = _turnstile_error()
+        if turnstile_err:
+            flash(turnstile_err, 'danger')
             return render_template('forgot_password.html', test_mode=test_mode_on())
         email = request.form.get('email', '').strip().lower()
         with get_db() as conn:

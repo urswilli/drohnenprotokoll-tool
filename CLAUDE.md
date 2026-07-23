@@ -57,7 +57,7 @@ Then deploy via Portainer (Stacks → Add Stack → Repository) with environment
 
 `SECRET_KEY` falls back to a hardcoded dev string when not set.
 
-**Cloudflare Turnstile:** Guest POST forms (`/login`, `/register`, `/forgot-password`) embed the managed widget (`templates/_turnstile.html`, site key `TURNSTILE_SITE_KEY`, `data-action="turnstile-spin-v2"`). Server-side `_verify_turnstile()` POSTs to `https://challenges.cloudflare.com/turnstile/v0/siteverify` with `TURNSTILE_SECRET`, token, and client IP (`X-Forwarded-For` first hop behind the tunnel). Fail closed if secret/token missing or `success` is not true.
+**Cloudflare Turnstile:** Guest POST forms (`/login`, `/register`, `/forgot-password`) embed the managed widget (`templates/_turnstile.html`, site key `TURNSTILE_SITE_KEY`, `data-action="turnstile-spin-v2"`). Server-side `_turnstile_error()` POSTs to `https://challenges.cloudflare.com/turnstile/v0/siteverify` with `TURNSTILE_SECRET` (read live from env each request) and the token — **without** `remoteip` (Docker/cloudflared internal IPs can break siteverify). Fail closed if secret/token missing or `success` is not true; flash messages distinguish missing secret, missing token, and invalid secret. Widget domains in the Cloudflare dashboard must include the public hostname (e.g. `srf.dronenerds.ch`) plus `localhost` for local testing. Host `.env` alone is not enough — the value must be visible inside the running container (`docker exec … printenv TURNSTILE_SECRET`).
 
 ## Architecture
 
