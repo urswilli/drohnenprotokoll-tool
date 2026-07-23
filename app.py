@@ -658,9 +658,11 @@ def _turnstile_resolve_ipv4():
 
 
 def _turnstile_dns_keeper():
-    """Background refresh so logins never block on slow Docker DNS (~4s)."""
+    """Refresh cached IPv4 every 5 minutes (warmup already resolved once at import)."""
     while True:
+        _time.sleep(300)
         try:
+            # Force refresh even if TTL not expired
             infos = socket.getaddrinfo(
                 _TURNSTILE_HOST, 443, socket.AF_INET, socket.SOCK_STREAM)
             if infos:
@@ -669,10 +671,23 @@ def _turnstile_dns_keeper():
                     _turnstile_ip_cache['ip'] = ip
                     _turnstile_ip_cache['expires'] = (
                         _time.monotonic() + _TURNSTILE_IP_TTL)
-                app.logger.info('Turnstile DNS cache refreshed ip=%s', ip)
+                print(f'Turnstile DNS cache refreshed ip={ip}', flush=True)
         except Exception as e:
-            app.logger.warning('Turnstile DNS refresh failed: %s', e)
-        _time.sleep(300)
+            print(f'Turnstile DNS refresh failed: {e}', flush=True)
+
+
+def _start_turnstile_dns():
+    """Block once at worker start (~4s on slow Docker DNS), then refresh in background."""
+    try:
+        t0 = _time.monotonic()
+        ip = _turnstile_resolve_ipv4()
+        ms = (_time.monotonic() - t0) * 1000
+        print(f'Turnstile DNS warmup ok ip={ip} ({ms:.0f}ms)', flush=True)
+    except Exception as e:
+        print(f'Turnstile DNS warmup failed: {e}', flush=True)
+    threading.Thread(
+        target=_turnstile_dns_keeper, daemon=True, name='turnstile-dns'
+    ).start()
 
 
 class _HTTPSConnectionToIP(http.client.HTTPSConnection):
@@ -2033,7 +2048,7 @@ def _pdf_cleanup_loop():
         _time.sleep(86400)
 
 threading.Thread(target=_pdf_cleanup_loop, daemon=True, name='pdf-cleanup').start()
-threading.Thread(target=_turnstile_dns_keeper, daemon=True, name='turnstile-dns').start()
+_start_turnstile_dns()
 
 # Initialisierung beim Start (sowohl via Gunicorn als auch python3 app.py)
 init_db()
